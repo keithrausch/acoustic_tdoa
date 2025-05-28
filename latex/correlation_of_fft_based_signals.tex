@@ -1,0 +1,276 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Based on a template by Dana Ernst.
+% --------------------------------------------------------------
+
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry} 
+\usepackage{amsmath,amsthm,amssymb}
+%\usepackage{cancel}
+\usepackage[makeroom]{cancel}
+\usepackage{mathtools}
+\usepackage[thinc]{esdiff}
+\usepackage{tikz}
+\usetikzlibrary{matrix}
+\usepackage{amssymb}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\newenvironment{given}[1][Given]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1:}\hskip \labelsep ]}{\end{trivlist}}
+
+\newenvironment{derivation}[1][Derivation]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1:}]}{\end{trivlist}}
+
+\newcommand{\boxalign}[2][0.97\textwidth]{
+ \par\noindent\tikzstyle{mybox} = [draw=black,inner sep=6pt]
+ \begin{center}\begin{tikzpicture}
+  \node [mybox] (box){%
+   \begin{minipage}{#1}{\vspace{-5mm}#2}\end{minipage}
+  };
+ \end{tikzpicture}\end{center}
+}
+
+
+\begin{document}
+
+\hfill {\Large \center Cross Correlaton of Periodic Signals Constructed from DFT Bases} \\
+\\
+\noindent Keith Rausch \\
+\hfill \today \\
+
+\newcommand\twopi{2 \pi}
+\newcommand\twopii{\twopi \mathrm{i}}
+\newcommand\pii{\pi \mathrm{i}}
+
+\begin{given}{} 
+Definition of Cross Correlation for complex signals:
+\begin{align}
+(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{f(t)} g(t+\tau) \,dt
+\end{align}
+
+For periodic signals with period of $T$:
+\begin{align}
+(f \star g)(\tau) & = \int_{t_0}^{t_0+T} \overline{f(t)} g(t+\tau) \,dt
+\end{align}
+
+Summation Properties:
+\begin{align}
+\left( \sum_{i} C_i \right) \left( \sum_{j} C_j \right) & = \sum_{i} \sum_{j} C_i C_j
+\end{align}
+
+Complex Conjugate Properties:
+\begin{align}
+\overline{zw} & = (\overline{z}) (\overline{v}) \\
+\overline{ \exp{z}} & = \exp{\overline{z}}
+\end{align}
+
+%\begin{given}
+Given 2 signals with $N$ samples, where $N$ is even:
+\begin{align}
+y_1(t) & = \sum_{m = -N/2}^{N/2-1} A_m \exp{[\twopii f_m t]} \\
+y_2(t) & = \sum_{m = -N/2}^{N/2-1} B_m \exp{[\twopii f_m t]}
+\end{align}
+Where $d$ is the sampling period (in seconds per sample), and $N$ is the number of samples in a period $T$, we have $f_m = m/(dN) = m/T$
+\end{given}
+
+%\end{ex}
+
+%\begin{sol}\
+
+\begin{derivation}
+
+Starting with the definition of convolution, we can substitute the $y_1$ and $y_2$ for their Fourier representations, and the integration bounds can be replaced with the period ($T$) of the given signals:
+\begin{align}
+(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{y_1(t)} y_2(t+\tau) \,dt \\
+& = \int_{t_0}^{t_0+T} \overline{y_1(t)} y_2(t+\tau) \,dt \\
+& =  \int_{t_0}^{t_0+T} \left( \sum_{m = -N/2}^{N/2-1} \overline{A_m \exp{[\twopii f_m t]}} \right) \left( \sum_{n = -N/2}^{N/2-1} B_n \exp{[\twopii f_n (t+\tau)]} \right) \,dt
+\end{align}
+
+Rearranging terms and moving the complex conjugate inside the exponential. The argument to $\exp{[\twopii f_m t]}$ is purely imaginary, so we can write $\overline{ \exp{[\twopii f_m t]} } = \exp{[\overline{ \twopii f_m t }]} = \exp{[-\twopii f_m t]}$:
+\begin{align}
+& =  \int_{t_0}^{t_0+T} \sum_{m = -N/2}^{N/2-1} \sum_{n = -N/2}^{N/2-1} \overline{A_m} \exp{[-\twopii f_m t]} B_n \exp{[\twopii f_n (t+\tau)]} \,dt \\
+& =  \int_{t_0}^{t_0+T} \sum_{m = -N/2}^{N/2-1} \sum_{n = -N/2}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \exp{[\twopii (f_n-f_m) t]} \,dt
+\end{align}
+
+The expression $f_n - f_m$ is $0$ where $n=m$, so we can't immediately integrate this expression. Instead, we must break the sums apart to isolate the division by $0$:
+\begin{align}
+& \!\begin{aligned}
+ =  \int_{t_0}^{t_0+T} & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n \neq m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \exp{[\twopii (f_n-f_m) t]} \\
+ + & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n=m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \exp{[\twopii \cancelto{0}{(f_n-f_m)} t ]} \,dt
+\end{aligned}
+\end{align}
+
+We can move the integral inside since the summation bounds does not depend on $t$ (FACT CHECK THIS:
+\begin{align}
+& \!\begin{aligned}
+ = & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n \neq m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \int_{t_0}^{t_0+T} \exp{[\twopii (f_n-f_m) t]} \,dt \\
+ + & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n=m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \int_{t_0}^{t_0+T} 1 \,dt
+\end{aligned}
+\end{align}
+
+Evaluating the integral:
+\begin{align}
+& \!\begin{aligned}
+ = & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n \neq m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \left( \frac{1}{ \twopii (f_n-f_m)} \right) \left[ \exp{[\twopii (f_n-f_m) t]} \right] \Big|_{t_0}^{t_0+T} \\
+ + T & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n=m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]}
+\end{aligned}
+\end{align}
+
+\pagebreak
+
+Since $t_0$ can be arbitrarily chosen, we set $t_0=0$. Since $i$ and $j$ are integers, $ \twopii (i + j) $ is simply a multiple of $2 \pi$, and the integral goes to zero:
+\begin{align}
+& \!\begin{aligned}
+ = & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n \neq m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \left( \frac{1}{ \twopii (f_n-f_m)} \right) \cancelto{0}{\left[ \exp{[\twopii \frac{i+j}{T} T]} - \exp{[\twopii \frac{i+j}{T} 0]} \right]} \\
+ + T & \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n=m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]}
+\end{aligned}
+\end{align}
+
+Since $n=m$, the summation can be simplified:
+\begin{align}
+& = T \sum_{m = -N/2}^{N/2-1} \sum_{\substack{n = -N/2 \\ n=m}}^{N/2-1} \overline{A_m} B_n \exp{[\twopii f_n \tau]} \\
+& = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{[\twopii f_m \tau]}
+\end{align}
+
+Finally:
+\boxalign[0.7\textwidth]{
+\begin{align}
+(y_1 \star y_2) (\tau) & = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{[\twopii f_m \tau]}
+\end{align}
+}
+
+Differentiating with respect to $\tau$:
+\boxalign[0.7\textwidth]{
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) & = (\twopii)^{n} T \sum_{m = -N/2}^{N/2-1} f_m^n \overline{A_m} B_m \exp{[\twopii f_m \tau]}
+\end{align}
+}
+
+Let's apply the ideas of Cooley and Tukey and decimate the FFT into even and odd components that can be reused. Remember that $f_m = \frac{m}{dN} = \frac{m}{T}$. For brevity, lets set $C_m = f_m^n \overline{A_m} B_m $
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) \left(\frac{1}{(\twopii)^{n} T}\right) & = \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii f_{2m} \tau]} \\
+& + \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii f_{2m+1} \tau]} \\
+\end{align}
+
+Since $f_m=m/T$, then $\exp{[\twopii f_{2m+1} \tau]} = \exp{[\twopii \frac{2m+1}{T} \tau]} = \exp{[\twopii \frac{2m}{T} \tau]} \exp{[\twopii \frac{\tau}{T}]} $ and you can factor out $\exp{[\twopii \frac{\tau}{T}]}$ from the summation:
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) \left(\frac{1}{(\twopii)^{n} T}\right) = & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii f_{2m} \tau]} \\
++ \exp{[\twopii \frac{\tau}{T}]} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii f_{2m} \tau]} \\
+= & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \\
++ \exp{[\twopii \frac{\tau}{T}]} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]}
+\end{align}
+
+Let's set $E(\tau)$ and $O(\tau)$ to hold the even and odd terms respectively
+\begin{align}
+E(\tau) & = \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \\
+O(\tau) & = \exp{[\twopii \frac{\alpha}{T}]} \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]}
+\end{align}
+
+
+Now Let's check that  $\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) = \diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau+\alpha)$. Remember that $T = dN$.
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau+\alpha) \left(\frac{1}{(\twopii)^{n} T}\right)
+= & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \exp{[\twopii 2 f_m \alpha]} \\
++ \exp{[\twopii \frac{\tau}{T}]} \exp{[\twopii \frac{\alpha}{T}]} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]} \exp{[\twopii 2 f_m \alpha]}
+\end{align}
+
+Let's set $\alpha = T/2$, so $2 f_m \alpha = \frac{2m}{dN} \frac{dN}{2} = m$ and $\frac{\alpha}{T} = \frac{1}{2}$.
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau+\alpha) \left(\frac{1}{(\twopii)^{n} T}\right) = & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \exp{[\twopii 2 f_m \alpha]} \\
++ \exp{[\twopii \frac{\tau}{T}\tau]} \exp{[\twopii \frac{\alpha}{T}]} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]} \exp{[\twopii 2 f_m \alpha]} \\
+= & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \cancelto{1}{\exp{[\twopii m]}} \\
++ \exp{[\twopii \frac{\tau}{T}]} \cancelto{-1}{\exp{[\pii]}} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]} \cancelto{1}{\exp{[\twopii 2 f_m \alpha]}} \\
+= & \sum_{m = -N/4}^{N/4} C_{2m} \exp{[\twopii 2 f_m \tau]} \\
+- \exp{[\twopii \frac{\tau}{T}]} & \sum_{m = -N/4}^{N/4-1} C_{2m+1} \exp{[\twopii 2 f_m \tau]}
+\end{align}
+
+Finally, the butterfly appears:
+\begin{align}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) \left(\frac{1}{(\twopii)^{n} T}\right) & = E(\tau) + \exp{[\twopii \frac{\tau}{T}]} O(\tau) \\
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau+\frac{T}{2}) \left(\frac{1}{(\twopii)^{n} T}\right) & = E(\tau) - \exp{[\twopii \frac{\tau}{T}]} O(\tau)
+\end{align}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+You can arrive at the same conclusion by converting to the frequency domain:
+\begin{align}
+(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{y_1(t)} y_2(t+\tau) \,dt \\
+\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[y_1(t)\right]} \mathfrak{F}\left[y_2(t+\tau)\right] \\
+\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[\left( \sum_{m = -N/2}^{N/2-1} A_m \exp{[\twopii f_m t]} \right)\right]} \mathfrak{F}\left[\left( \sum_{n = -N/2}^{N/2-1} B_n \exp{[\twopii f_n (t+\tau)]} \right)\right] \\
+\mathfrak{F}[f \star g](\tau) & =  \left( \sum_{m = -N/2}^{N/2-1} \overline{A_m} \twopi \delta (\omega - \twopi f_m) \right) \left( \sum_{n = -N/2}^{N/2-1} B_n \twopi  \delta(\twopii f_n) \exp{[-\twopii f_n \tau]} \right) \\
+\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \sum_{n = -N/2}^{N/2-1} \overline{A_m} B_n \twopi  \delta (\omega - \twopi f_m) \twopi  \delta \left(\omega - \twopii f_n \right) \exp{[-\twopii f_n \tau]} \\
+\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \twopi \delta (\omega - \twopi f_m)  \twopi \delta \left(\omega - \twopii f_m \right) \exp{[-\twopii f_n \tau]} \\
+\mathfrak{F}[f \star g](\tau) & = (\twopi )^2 \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \delta (\omega - \twopi f_m)  \exp{[-\twopii f_n \tau]}
+\end{align}
+
+
+\end{derivation}
+%\end{sol}
+
+% --------------------------------------------------------------
+%     You don't have to mess with anything below this line.
+% --------------------------------------------------------------
+
+\end{document}
+
+
+
+
+
+%XXXX:
+%\begin{figure}[!h]
+%\centering
+%\begin{tikzpicture} [
+%    toplabel/.style={
+%        row 1 column #1/.style={%
+%            execute at begin cell={%
+%                |[label=\the\pgfmatrixcurrentcolumn]|},
+%            execute at empty cell={%
+%                \node[label=\the\pgfmatrixcurrentcolumn]{};}
+%        }
+%    },
+%    leftlabel/.style={
+%        row #1 column 1/.style={%
+%            execute at begin cell={%
+%                |[label=left:\the\pgfmatrixcurrentrow]|},
+%            execute at empty cell={%
+%                \node[label=left:\the\pgfmatrixcurrentrow]{};}
+%        }
+%    },
+%    topleft/.style={
+%        row 1 column 1/.style={%
+%            execute at begin cell={%
+%                |[label=\the\pgfmatrixcurrentcolumn,
+%                    label=left:\the\pgfmatrixcurrentrow]|},
+%            execute at empty cell={%
+%                \node[label=left:\the\pgfmatrixcurrentrow,
+%                    label=\the\pgfmatrixcurrentcolumn]{};}
+%        }
+%    }
+%]
+%\matrix (A) [
+%    matrix of nodes, 
+%    nodes in empty cells,
+%    nodes={draw, minimum size=1cm, anchor=center},
+%    row sep=-\pgflinewidth,
+%    column sep=-\pgflinewidth,
+%    topleft,
+%    toplabel/.list={2,3,4,5,6,7,8},
+%    leftlabel/.list={2,...,8}
+%]
+%{x& & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\
+% & & & & & & & \\};
+%
+%\end{tikzpicture}
+%%\tikz
+%\caption{A caption.}
+%\end{figure}
