@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import json, base64
 import os
 
-import tdoa_system as tdoa
+import tdoa_algos as tdoa
 from plotting_utils import plot_points, plot_half_hyperbolas
-from chatgpt_example import generate_scene
+from chatgpt_example_dds import generate_scene
 
 
 def screen_info():

@@ -251,7 +251,7 @@ if __name__ == "__main__":
     emitter = np.array([0,2,0])
     emitters = np.stack([emitter], axis=1)
 
-    import tdoa_system as tdoa
+    import tdoa.tdoa_algos as tdoa
     delta_times_r, delta_times_e = tdoa.delta_times_from_points(receivers,
                                                                 emitters,
                                                                 emitter_pairs = None,

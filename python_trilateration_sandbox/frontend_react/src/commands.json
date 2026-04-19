@@ -1,0 +1,225 @@
+{
+  "nested": {
+    "commands": {
+      "nested": {
+        "PointCloud": {
+          "fields": {
+            "xCoords": {
+              "rule": "repeated",
+              "type": "float",
+              "id": 1,
+              "options": {
+                "packed": true
+              }
+            },
+            "yCoords": {
+              "rule": "repeated",
+              "type": "float",
+              "id": 2,
+              "options": {
+                "packed": true
+              }
+            },
+            "zCoords": {
+              "rule": "repeated",
+              "type": "float",
+              "id": 3,
+              "options": {
+                "packed": true
+              }
+            }
+          }
+        },
+        "AddTodoClass": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PingClass": {
+          "fields": {}
+        },
+        "FullStateEstimate": {
+          "fields": {
+            "trueReceivers": {
+              "type": "PointCloud",
+              "id": 1
+            },
+            "trueEmitters": {
+              "type": "PointCloud",
+              "id": 2
+            },
+            "estReceivers": {
+              "type": "PointCloud",
+              "id": 3
+            },
+            "estEmitters": {
+              "type": "PointCloud",
+              "id": 4
+            }
+          }
+        },
+        "MockSimulation": {
+          "fields": {
+            "fullStateEstimate": {
+              "type": "FullStateEstimate",
+              "id": 1
+            }
+          }
+        },
+        "CMD_Header": {
+          "fields": {
+            "requestId": {
+              "type": "string",
+              "id": 1
+            },
+            "objName": {
+              "type": "string",
+              "id": 2
+            },
+            "cmdName": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "CMD_Payload": {
+          "oneofs": {
+            "variant": {
+              "oneof": [
+                "addTodoField",
+                "pingField",
+                "startMockSimulation"
+              ]
+            }
+          },
+          "fields": {
+            "addTodoField": {
+              "type": "AddTodoClass",
+              "id": 3
+            },
+            "pingField": {
+              "type": "PingClass",
+              "id": 4
+            },
+            "startMockSimulation": {
+              "type": "MockSimulation",
+              "id": 5
+            }
+          }
+        },
+        "CMD_Holder": {
+          "fields": {
+            "header": {
+              "type": "CMD_Header",
+              "id": 1
+            },
+            "payload": {
+              "type": "google.protobuf.Any",
+              "id": 2
+            }
+          }
+        },
+        "CMD_Response": {
+          "fields": {
+            "requestId": {
+              "type": "string",
+              "id": 1
+            },
+            "success": {
+              "type": "bool",
+              "id": 2
+            },
+            "message": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "TLM_HK": {
+          "fields": {
+            "nClients": {
+              "type": "uint64",
+              "id": 1
+            }
+          }
+        },
+        "TLM_Header": {
+          "fields": {
+            "timeNs": {
+              "type": "uint64",
+              "id": 1
+            },
+            "topicType": {
+              "type": "string",
+              "id": 2
+            },
+            "topicName": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "TLM_Payload": {
+          "oneofs": {
+            "variant": {
+              "oneof": [
+                "cmdResponsePayload",
+                "hkPayload",
+                "fullStateEstimate"
+              ]
+            }
+          },
+          "fields": {
+            "cmdResponsePayload": {
+              "type": "CMD_Response",
+              "id": 1
+            },
+            "hkPayload": {
+              "type": "TLM_HK",
+              "id": 2
+            },
+            "fullStateEstimate": {
+              "type": "FullStateEstimate",
+              "id": 3
+            }
+          }
+        },
+        "TLM_Holder": {
+          "fields": {
+            "header": {
+              "type": "TLM_Header",
+              "id": 1
+            },
+            "payload": {
+              "type": "google.protobuf.Any",
+              "id": 2
+            }
+          }
+        }
+      }
+    },
+    "google": {
+      "nested": {
+        "protobuf": {
+          "nested": {
+            "Any": {
+              "fields": {
+                "type_url": {
+                  "type": "string",
+                  "id": 1
+                },
+                "value": {
+                  "type": "bytes",
+                  "id": 2
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

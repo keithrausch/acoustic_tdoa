@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+
+package commands;
+
+// --- Shared Types ---
+message PointCloud {
+  repeated float x_coords = 1 [packed=true];
+  repeated float y_coords = 2 [packed=true];
+  repeated float z_coords = 3 [packed=true];
+}
+
+
+// --- Commands ---
+message AddTodoClass {
+  string text = 1;
+}
+
+message PingClass {}
+
+message FullStateEstimate {
+    PointCloud true_receivers = 1;
+    PointCloud true_emitters = 2;
+    PointCloud est_receivers = 3;
+    PointCloud est_emitters = 4;
+}
+
+message MockSimulation {
+  FullStateEstimate full_state_estimate = 1;
+}
+
+message CMD_Header {
+  string request_id = 1;
+  string obj_name = 2;
+  string cmd_name = 3;
+}
+
+message CMD_Payload {
+  oneof variant {
+    AddTodoClass add_todo_field = 3;
+    PingClass ping_field = 4;
+    MockSimulation start_mock_simulation = 5;
+  }
+}
+
+// --- Envelope wraps all commands ---
+message CMD_Holder {
+  CMD_Header header = 1;
+  google.protobuf.Any payload = 2;
+}
+
+// --- Backend responses ---
+message CMD_Response {
+  string request_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+
+
+// --- Envelope wraps all commands ---
+message TLM_HK {
+  uint64 n_clients = 1;
+}
+
+message TLM_Header {
+  uint64 time_ns = 1;
+  string topic_type = 2;
+  string topic_name = 3;
+}
+
+message TLM_Payload {
+  oneof variant {
+    CMD_Response cmd_response_payload = 1;
+    TLM_HK hk_payload = 2;
+    FullStateEstimate full_state_estimate = 3;
+  }
+}
+
+
+message TLM_Holder {
+  TLM_Header header = 1;
+  google.protobuf.Any payload = 2;
+}
