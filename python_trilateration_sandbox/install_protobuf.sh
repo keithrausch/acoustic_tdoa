@@ -32,5 +32,5 @@ sudo ldconfig
 # npm install google-protobufjs
 # npm install protobufjs-cli
 
-npm install google-protobuf
-npm install protobufjs-cli
+npm install google-protobuf@3.19.0 # SEE ME. MANUALLY SETTINGS THE NPM VERSION TO MATCH WHAT WE JUST COMPILED
+# npm install protobufjs-cli

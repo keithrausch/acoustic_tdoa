@@ -1,8 +1,7 @@
-// WebSocketContext.js
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import * as proto from "./commands"; // Import your generated proto file
-import protobuf from "protobufjs"; // Import protobufjs
-import commandsJson from "./commands.json";
+import * as proto from "./commands_pb";
+import { Any } from "google-protobuf/google/protobuf/any_pb";
+import { getMessageClass, getTypeUrl } from "./protobufRegistry";
 
 let pendingResponses = new Map();
 let messageHandlers = new Map();  // Store message handlers based on message type
@@ -33,27 +32,26 @@ export const WebSocketProvider = ({ children }) => {
     socket.onmessage = (event) => {
       if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
         const bytes = new Uint8Array(event.data);
-        const msg = proto.commands.TLM_Holder.decode(bytes);
-        const tlm_header = msg.header;
-        const tlm_payload_any = msg.payload;
+        const msg = proto.TLM_Holder.deserializeBinary(bytes);
+        const tlm_header = msg.getHeader();
+        const tlm_payload_any = msg.getPayload();
 
-        const typeUrl = tlm_payload_any.type_url;
-        const msg_type = typeUrl.split('/').pop().split('.').pop();
-        const messageClass = proto.commands[msg_type];
+        const typeUrl = tlm_payload_any.getTypeUrl();
+        const messageClass = getMessageClass(typeUrl);
 
-        let tlm_payload;
+        let tlm_payload = null;
         if (messageClass) {
           try {
-            tlm_payload = messageClass.decode(tlm_payload_any.value);
+            tlm_payload = messageClass.deserializeBinary(tlm_payload_any.getValue());
           } catch (err) {
             console.error("Error unpacking message:", err);
           }
         } else {
-          console.error(`Unknown message type: ${msg_type}`);
+          console.error(`Unknown message type: ${typeUrl}`);
         }
 
-        if (msg_type === proto.commands.CMD_Response.name) {
-          const request_id = tlm_payload.request_id;
+        if (messageClass === proto.CMD_Response) {
+          const request_id = tlm_payload.getRequestId?.();
           if (pendingResponses.has(request_id)) {
             pendingResponses.get(request_id)(tlm_payload); // resolve promise
             pendingResponses.delete(request_id);
@@ -62,8 +60,9 @@ export const WebSocketProvider = ({ children }) => {
           }
         }
 
-        const topic_type = tlm_header.topic_type;
-        const topic_name = tlm_header.topic_name;
+        // const topic_type = tlm_header.getTopicType();
+        const topic_type = messageClass.constructor;
+        const topic_name = tlm_header.getTopicName();
 
         if (messageHandlers.has(topic_type)) {
           const pairs = messageHandlers.get(topic_type);
@@ -126,16 +125,9 @@ export const WebSocketProvider = ({ children }) => {
     connectWebSocket();
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.close(1000, "Provider unmounted");
-      }
+      socketRef.current?.close(1000, "Provider unmounted");
     };
   }, []);
-
-  const getTypeUrl = (msg) => {
-    if (!msg?.$type) throw new Error("Message is not a protobufjs type");
-    return `types.googleapis.com/${msg.$type.fullName.slice(1)}`;
-  };
 
   const createMessage = (typeName, Type, payload) => {
     // const root = protobuf.Root.fromJSON(commandsJson);
@@ -155,28 +147,23 @@ export const WebSocketProvider = ({ children }) => {
 
     const request_id = crypto.randomUUID();
 
-    const cmd_header = proto.commands.CMD_Header.create({
-      request_id,
-      obj_name,
-      cmd_name
-    });
+    const cmd_header = new proto.CMD_Header();
+    cmd_header.setRequestId(request_id);
+    cmd_header.setObjName(obj_name);
+    cmd_header.setCmdName(cmd_name);
 
-    const serializedPayload = cmd_payload.constructor.encode(cmd_payload).finish();
-    // const typeUrl = `types.googleapis.com/${cmd_payload.constructor.name}`;
-    // const typeUrl = `types.googleapis.com/${cmd_payload.$type.fullName.slice(1)}`;
-    const typeUrl = cmd_payload.my_type_url;
-    const anyPayload = proto.google.protobuf.Any.create({
-      type_url: typeUrl,
-      value: serializedPayload
-    });
+    const anyPayload = new Any();
 
-    const cmd_holder = proto.commands.CMD_Holder.create({
-      header: cmd_header,
-      payload: anyPayload
-    });
+    const payloadBytes = cmd_payload.serializeBinary();
 
-    const buffer = proto.commands.CMD_Holder.encode(cmd_holder).finish();
-    socketRef.current.send(buffer);
+    anyPayload.setValue(payloadBytes);
+    anyPayload.setTypeUrl(getTypeUrl(cmd_payload.constructor));
+
+    const cmd_holder = new proto.CMD_Holder();
+    cmd_holder.setHeader(cmd_header);
+    cmd_holder.setPayload(anyPayload);
+
+    socketRef.current.send(cmd_holder.serializeBinary());
 
     return new Promise((resolve) => {
       pendingResponses.set(request_id, resolve);
@@ -184,7 +171,7 @@ export const WebSocketProvider = ({ children }) => {
   };
 
   const registerMessageHandler = (handler, pb_class, topic_names = []) => {
-    const topic_type = pb_class.name;
+    const topic_type = pb_class.constructor;
     if (!messageHandlers.has(topic_type)) {
       messageHandlers.set(topic_type, []);
     }

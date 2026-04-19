@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import * as proto from "./commands"; // Import your generated proto file
+import * as proto from "./commands_pb";
 import { useWebSocket } from "./WebSocketContext"; // WebSocket logic
 import LeftSidebar from "./sidebars/left_sidebar";  // Updated Left Sidebar with Tabs, Inputs, etc.
 import RightSidebar from "./sidebars/right_sidebar";  // Right Sidebar for selected point info
@@ -49,22 +49,25 @@ const WebSocket3DPlot = () => {
 
       // Check if message is the type we expect, e.g., "point_cloud_payload"
       // if (msg.tlm === "full_state_estimate") {
-        const truth_rcv_x = tlm_payload.true_receivers.x_coords;
-        const truth_rcv_y = tlm_payload.true_receivers.y_coords;
-        const truth_rcv_z = tlm_payload.true_receivers.z_coords;
+      if (typeof(tlm_payload.getTrueReceivers) === "function") {
+        const truth_rcv_x = tlm_payload.getTrueReceivers().getXCoordsList();
+        const truth_rcv_y = tlm_payload.getTrueReceivers().getYCoordsList();
+        const truth_rcv_z = tlm_payload.getTrueReceivers().getZCoordsList();
         const newReceiverPoints = truth_rcv_x.map((xValue, index) => [xValue, truth_rcv_y[index], truth_rcv_z[index]]);
         setReceiverPoints(newReceiverPoints); // Update the state with new points
+      }
 
-        const truth_emt_x = tlm_payload.true_emitters.x_coords;
-        const truth_emt_y = tlm_payload.true_emitters.y_coords;
-        const truth_emt_z = tlm_payload.true_emitters.z_coords;
+      if (typeof(tlm_payload.getTrueEmitters) === "function") {
+        const truth_emt_x = tlm_payload.getTrueEmitters().getXCoordsList();
+        const truth_emt_y = tlm_payload.getTrueEmitters().getYCoordsList();
+        const truth_emt_z = tlm_payload.getTrueEmitters().getZCoordsList();
         const newEmitterPoints = truth_emt_x.map((xValue, index) => [xValue, truth_emt_y[index], truth_emt_z[index]]);
         setEmitterPoints(newEmitterPoints); // Update the state with new points
-      // }
+      }
     };
 
     // Register WebSocket message handler
-    registerMessageHandler(handleWebSocketMessage, "commands.FullStateEstimate", proto.commands.FullStateEstimate);
+    registerMessageHandler(handleWebSocketMessage, proto.FullStateEstimate);
 
     // Cleanup the WebSocket handler when the component is unmounted
     return () => {

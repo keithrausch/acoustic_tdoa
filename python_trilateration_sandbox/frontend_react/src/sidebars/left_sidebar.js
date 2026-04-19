@@ -2,13 +2,25 @@ import React, { useState } from "react";
 import { Box, TextField, Button, Tabs, Tab, Typography } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { useWebSocket } from "../WebSocketContext"; // WebSocket context
-import * as proto from "../commands"; // Import your generated proto file
+import * as proto from "../commands_pb";
 
 const LeftSidebar = () => {
-  const { sendCommand, createMessage } = useWebSocket();
+  const { sendCommand } = useWebSocket();
   const [tabIndex, setTabIndex] = useState(0);
   const [nReceivers, setNReceivers] = useState(3);
   const [nEmitters, setNEmitters] = useState(3);
+
+
+  const randomPositions = (count) =>
+    Array.from({ length: count }, () => ({
+      x: parseFloat((Math.random() * 10- 5).toFixed(3)),
+      y: parseFloat((Math.random() * 10- 5).toFixed(3)),
+      z: parseFloat((Math.random() * 10- 5).toFixed(3)),
+    }));
+
+  const [receivers, setReceivers] = useState(randomPositions(nReceivers));
+  const [emitters, setEmitters] = useState(randomPositions(nEmitters));
+
 
   // Handle number of receivers or emitters change
   const handleChangeCount = (e, type) => {
@@ -21,17 +33,6 @@ const LeftSidebar = () => {
       setEmitters(randomPositions(count)); // Randomize when count changes
     }
   };
-
-  const randomPositions = (count) =>
-    Array.from({ length: count }, () => ({
-      x: parseFloat((Math.random() * 10- 5).toFixed(3)),
-      y: parseFloat((Math.random() * 10- 5).toFixed(3)),
-      z: parseFloat((Math.random() * 10- 5).toFixed(3)),
-    }));
-
-  const [receivers, setReceivers] = useState(randomPositions(nReceivers));
-  const [emitters, setEmitters] = useState(randomPositions(nEmitters));
-
   // Handle randomizing xyz positions for receivers and emitters
   const randomizePositions = (type) => {
     if (type === "receivers") {
@@ -43,28 +44,28 @@ const LeftSidebar = () => {
 
   // Package coordinates into protobuf message and send via WebSocket
   const startMockCalibration = (receivers, emitters) => {
-    const rcv_xs = receivers.map((pnt) => pnt.x);
-    const rcs_ys = receivers.map((pnt) => pnt.y);
-    const rcs_zs = receivers.map((pnt) => pnt.z);
+    // --- PointCloud for receivers ---
+    const rcvCloud = new proto.PointCloud();
+    rcvCloud.setXCoordsList(receivers.map(p => p.x));
+    rcvCloud.setYCoordsList(receivers.map(p => p.y));
+    rcvCloud.setZCoordsList(receivers.map(p => p.z));
 
-    const emt_xs = emitters.map((pnt) => pnt.x);
-    const emt_ys = emitters.map((pnt) => pnt.y);
-    const emt_zs = emitters.map((pnt) => pnt.z);
+    // --- PointCloud for emitters ---
+    const emtCloud = new proto.PointCloud();
+    emtCloud.setXCoordsList(emitters.map(p => p.x));
+    emtCloud.setYCoordsList(emitters.map(p => p.y));
+    emtCloud.setZCoordsList(emitters.map(p => p.z));
 
-    const rcv_cloud = proto.commands.PointCloud.create({ x_coords: rcv_xs, y_coords: rcs_ys, z_coords: rcs_zs });
-    const emt_cloud = proto.commands.PointCloud.create({ x_coords: emt_xs, y_coords: emt_ys, z_coords: emt_zs });
+    // --- FullStateEstimate ---
+    const fullState = new proto.FullStateEstimate();
+    fullState.setTrueReceivers(rcvCloud);
+    fullState.setTrueEmitters(emtCloud);
 
-    const full_state_estimate = proto.commands.FullStateEstimate.create({true_receivers: rcv_cloud, true_emitters: emt_cloud});
+    // --- MockSimulation ---
+    const msg = new proto.MockSimulation();
+    msg.setFullStateEstimate(fullState);
 
-    // const msg = proto.commands.MockSimulation.create({
-    //   full_state_estimate: full_state_estimate,
-    // });
-    // msg.my_type_url = "MockSimulation"
-
-    const msg = createMessage("commands.MockSimulation", proto.commands.MockSimulation, {
-      full_state_estimate: full_state_estimate,
-    });
-
+    // Send command (no createMessage anymore)
     sendCommand("tdoa_client", "start_mock_simulation", msg)
       .then((response) => {
         console.log("Positions sent successfully:", response);

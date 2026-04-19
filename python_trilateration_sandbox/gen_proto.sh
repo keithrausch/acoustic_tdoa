@@ -13,8 +13,10 @@ pushd "$(dirname "$0")" > /dev/null
 protoc --python_out=./backend/generated/proto/ ./shared/commands.proto
 
 pushd ./frontend_react
-npx pbjs --keep-case -t static-module --wrap commonjs --out ./src/commands.js ../shared/commands.proto
-npx pbjs -t json -o ./src/commands.json ../shared/commands.proto
+# npx pbjs --keep-case -t static-module --wrap commonjs --out ./src/commands.js ../shared/commands.proto
+protoc --js_out=import_style=commonjs,binary:./src --proto_path ../shared/ commands.proto
 popd
 
 # sudo apt-get install -y protobuf-compiler
+
+popd
