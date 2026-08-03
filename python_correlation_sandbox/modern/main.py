@@ -1,9 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import numpy as np
 from functools import partial
 from scipy import optimize
+import re
+from pathlib import Path
+import os
 
+import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -61,6 +63,14 @@ def correlate_impl(A, B, f, duration_s, tau, derivative_order=0, is_normalized=F
     return duration_s * np.power(2.j*np.pi, derivative_order) * normalization * \
         np.sum(np.power(f,derivative_order) * np.conjugate(A)*B*np.exp(2.j*np.pi*np.outer(f, tau)), axis=0)
 
+def correlate_ifft_impl(A, B, f, duration_s, derivative_order=0, is_normalized=False):
+    normalization = 1.0 / (len(f)*len(f)) if not is_normalized else 1.0
+    mult = np.power(f,derivative_order) * np.conj(A) * B
+    # NOTE: setting normalization to 'forward' so that it doesnt do anything here. 
+    # we are manually normalizing. unfortunantly there is no 'none' options
+    return duration_s * np.power(2.j*np.pi, derivative_order) * normalization * \
+        np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(mult), norm='forward'))
+
 def perform_fft_and_shift_and_normalize(period, wave):
     N = len(wave)
     freqs = np.fft.fftfreq(N, d=period)
@@ -74,38 +84,50 @@ def perform_fft_and_shift_and_normalize(period, wave):
 
     return freqs, coeffs_normalized
 
-def multipage(filename, figs=None, dpi=200):
+def multipage(folder_name, prefix, figs=None, dpi=200):
+    script_dir = Path(__file__).resolve().parent
+
+    os.makedirs(os.path.join(script_dir, folder_name), exist_ok=True)
+
     if figs is None:
         figs = [plt.figure(n) for n in plt.get_fignums()]
 
     for i,fig in enumerate(figs):
-        pp = PdfPages(f'{filename}_{i}.pdf')
+        raw_title = fig.axes[0].get_title()
+        if not raw_title:
+            raw_title = 'unnamed_plot'
+        sanitized_filename = re.sub(r'[^\w\s-]', '', raw_title).strip().lower()
+        sanitized_filename = re.sub(r'[-\s]+', '_', sanitized_filename)
+
+        pp = PdfPages(f'{script_dir}/{folder_name}/{prefix}{i:02d}_{sanitized_filename}.pdf')
         fig.savefig(pp, format='pdf', bbox_inches='tight')
         pp.close()
 
-def show_sinc():
+def show_sinc(freq=1):
 
     N = 2**7
     duration_s = 1.0
-    period = duration_s / float(N)
-    tt, yy = create_sinc(period, duration_s=duration_s, center_s=duration_s*0.5)
+    sample_period = duration_s / float(N)
+    tt, yy = create_sinc(sample_period, duration_s=duration_s, freq=freq, center_s=duration_s*0.5)
 
     coeffs = np.fft.fft(yy)
     mag = np.absolute(coeffs)
     phase = np.angle(coeffs)
-    freqs = np.fft.fftfreq(N, d=period)
+    freqs = np.fft.fftfreq(N, d=sample_period)
 
     freqs_plot = np.fft.fftshift(freqs)
     mag_plot = np.fft.fftshift(mag)
     phase_plot = np.fft.fftshift(phase)
 
     plt.figure()
-    plt.plot(freqs_plot, yy)
-    plt.title('sinc(t)')
+    plt.plot(tt - duration_s*0.5, yy, '.-')
+    plt.xlabel('time [s]')
+    plt.title(f'sinc(t) {freq}Hz')
 
     plt.figure()
-    plt.plot(freqs_plot, mag_plot)
-    plt.title('mag sinc')
+    plt.plot(freqs_plot, mag_plot, '.-')
+    plt.xlabel('freq [Hz?]')
+    plt.title(f'freq mag of sinc(t) {freq}Hz')
 
 
 def test_reconstruction():
@@ -135,12 +157,13 @@ def test_reconstruction():
     phase_plot = np.fft.fftshift(phase)
 
     plt.figure()
-    plt.plot(freqs_plot, mag_plot)
-    plt.title('mag')
+    plt.plot(freqs_plot, mag_plot, '.-')
+    plt.xlabel('freq [Hz?]')
+    plt.title('freq mag of example waveform')
 
-    plt.figure()
-    plt.plot(freqs_plot, phase_plot)
-    plt.title('phase')
+    # plt.figure()
+    # plt.plot(freqs_plot, phase_plot)
+    # plt.title('phase')
 
     # reconstruction
     yy_recon = np.array([ np.sum([x_m*np.exp(2.j*np.pi*k*m/N_sample) for m, x_m in enumerate(coeffs)]) for k in range(N_sample) ]) / float(N_sample)
@@ -159,11 +182,12 @@ def test_reconstruction():
     yy_interp = [fft_interp(coeffs, freqs, t) for t in tt_interp ]
 
     plt.figure()
-    plt.plot(tt_true, yy_true, '-')
-    plt.plot(tt_sample, yy_recon, 'o', fillstyle='none')
-    plt.plot(tt_interp, yy_interp, '.', fillstyle='none')
-    plt.title('time domain')
-    plt.legend(['true function', 'reconstruction from samples', 'interpolated'])
+    plt.plot(tt_true, yy_true, '-', label='true waveform')
+    plt.plot(tt_sample, yy_recon, 'o', fillstyle='none', label='reconstruction from samples')
+    plt.plot(tt_interp, yy_interp, '.', fillstyle='none', label='interpolation from samples')
+    plt.xlabel('time [s]')
+    plt.title('example waveform reconstruction')
+    plt.legend()
 
 
 def test_correlation():
@@ -188,6 +212,12 @@ def test_correlation():
                                  center_s=0.5*duration_s, 
                                  amplitude=sinc_amplitude, 
                                  freq=sinc_freq)
+    
+    # create signal without sinc
+    _, wave_sample_sans_sinc = create_wave(period_sample, 
+                                         sinc_amplitude=None, 
+                                         sinc_center_s=None, 
+                                         sinc_freq=None)
 
     # create signal
     tt_sample, wave_sample = create_wave(period_sample, 
@@ -211,34 +241,38 @@ def test_correlation():
                         freqs, 
                         duration_s)
 
-    # window_s = 0.2
-    # tt_interp = np.linspace(center_s-0.5*window_s, center_s+0.5*window_s, N_interp)
+
+    plt.figure()
+    plt.plot(tt_sample, sinc_sample, '.-', fillstyle='none', label='sinc(t)')
+    plt.axvline(duration_s*0.5, color='r', linestyle='--', label='peak location')
+    plt.xlabel('time [s]')
+    plt.title('example sinc(t)')
+
+    plt.figure()
+    plt.plot(tt_sample, wave_sample_sans_sinc, '.-', fillstyle='none', label='env(t)')
+    plt.plot(tt_sample, wave_sample, '.-', fillstyle='none', label='env(t)+sinc(t)')
+    plt.axvline(sinc_center_s, color='r', linestyle='--', label='expected peak')
+    plt.xlabel('time [s]')
+    plt.title('example env(t) + sinc(t)')
+    plt.legend()
+
     # create correlation surface
-    shrink_factor = 0.5
-    tau_true = duration_s*0.5 - sinc_center_s # exact solution
+    for shrink_factor in [0.5, 0.01]:
+        tt_true = duration_s*0.5 - sinc_center_s # exact solution
 
-    tt_interp = np.linspace(tau_true + -duration_s*shrink_factor, 
-                            tau_true +duration_s*shrink_factor, 
-                            N_interp)
-    corr_interp = [correlate(t) for t in tt_interp ]
-    corr_interp_mag = corr_interp # np.absolute(corr_interp)
-    corr_interp_angle = np.angle(corr_interp)
+        tt_interp = np.linspace(tt_true + -duration_s*shrink_factor, 
+                                tt_true +duration_s*shrink_factor, 
+                                N_interp)
+        corr_interp = [correlate(t) for t in tt_interp ]
+        corr_interp_mag = corr_interp # np.absolute(corr_interp)
+        corr_interp_angle = np.angle(corr_interp)
 
-    plt.figure()
-    plt.plot(tt_sample, sinc_sample, '-', fillstyle='none')
-    plt.axvline(duration_s*0.5, color='r', linestyle='--')
-    plt.title('sinc(t)')
-
-    plt.figure()
-    plt.plot(tt_sample, wave_sample, '-', fillstyle='none')
-    plt.axvline(sinc_center_s, color='r', linestyle='--')
-    plt.title('wave(t) + sinc(t)')
-
-    plt.figure()
-    plt.plot(tt_interp, corr_interp_mag, '-', fillstyle='none')
-    plt.axvline(tau_true, color='r', linestyle='--')
-    plt.title('correlation surface')
-    plt.legend(['surface(tau)', 'expected peak location'])
+        plt.figure()
+        plt.plot(tt_interp, corr_interp_mag, '-', fillstyle='none', label=r'corr$(\tau)$')
+        plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
+        plt.title(rf'example correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
+        plt.xlabel('time [s]')
+        plt.legend()
 
     # plt.figure()
     # plt.plot(tt_interp, corr_interp_angle, '-', fillstyle='none')
@@ -276,6 +310,12 @@ def test_correlation_realistic_numbers():
                                  freq=sinc_freq, 
                                  func=sinc_func)
 
+    # create signal without sinc
+    tt_sample, wave_sample_sans_sinc = create_wave(period_sample, 
+                                         sinc_amplitude=None, 
+                                         sinc_center_s=None, 
+                                         sinc_freq=None)
+    
     # create signal
     tt_sample, wave_sample = create_wave(period_sample, 
                                          sinc_amplitude=sinc_amplitude, 
@@ -292,113 +332,102 @@ def test_correlation_realistic_numbers():
     sinc_coeffs = np.fft.fft(sinc_sample)
     sinc_coeffs = np.fft.fftshift(sinc_coeffs)
 
+    plt.figure()
+    plt.plot(tt_sample, sinc_sample, '.-', fillstyle='none', label='sinc(t)')
+    plt.axvline(duration_s*0.5, color='r', linestyle='--', label='peak location')
+    plt.xlabel('time [s]')
+    plt.title('realistic sinc(t)')
+    plt.legend()
+
+    plt.figure()
+    plt.plot(tt_sample, wave_sample_sans_sinc, '.-', fillstyle='none', label='env(t)')
+    plt.plot(tt_sample, wave_sample, '.-', fillstyle='none', label='env(t)+sinc(t)')
+    plt.axvline(sinc_center_s, color='r', linestyle='--', label='expected peak')
+    plt.xlabel('time [s]')
+    plt.title('realistic env(t) + sinc(t)')
+    plt.legend()
+
+    tt_true = duration_s*0.5 - sinc_center_s # exact solution
+
     # create correlation surface
-    shrink_factor = 0.5
-    tau_true = duration_s*0.5 - sinc_center_s # exact solution
+    for shrink_factor in [0.5, 0.01]:
+
+        correlate = partial(correlate_impl, wave_coeffs, sinc_coeffs, freqs, duration_s)
+        correlate_ifft = partial(correlate_ifft_impl, wave_coeffs, sinc_coeffs, freqs, duration_s)
+
+        tt_a = tt_true + -duration_s*shrink_factor
+        tt_b = tt_true + duration_s*shrink_factor
+        # tt_sample = np.arange(tt_a, tt_b, period_sample)
+        # tt_sample = tt_sample - tt_sample[len(tt_sample)//2] + tt_true # middle point is at 0
+        tt_sample = np.arange(N_sample) * period_sample - duration_s * 0.5 # all timestamps
+        tt_sample = tt_sample[(tt_sample >= tt_a) & (tt_sample <= tt_b)]
+        tt_ifft = np.arange(N_sample) * period_sample - duration_s * 0.5 # all timestamps
+        tt_ifft_mask = (tt_ifft >= tt_a) & (tt_ifft <= tt_b)
+        
+        tt_interp = np.linspace(tt_true + -duration_s*shrink_factor, 
+                                tt_true +duration_s*shrink_factor, 
+                                N_interp)
+        
+        corr_sample = [correlate(t) for t in tt_sample ]
+        corr_sample_real = np.real(corr_sample)
+        corr_interp = [correlate(t) for t in tt_interp ]
+        corr_interp_real = np.real(corr_interp)
+        corr_ifft_real = np.real(correlate_ifft())
+
+        # compute derivative
+        fprime = lambda tau: correlate(tau, derivative_order=1)
+        corr_deriv1_sample = [fprime(t) for t in tt_sample ]
+        corr_deriv1_sample_real = np.real(corr_deriv1_sample)
+        corr_deriv1_interp = [fprime(t) for t in tt_interp ]
+        corr_deriv1_interp_real = np.real(corr_deriv1_interp)
+        corr_deriv1_ifft_real = np.real(correlate_ifft(derivative_order=1))
+
+        fprime2 = lambda tau: correlate(tau, derivative_order=2)
+        corr_deriv2_sample = [fprime2(t) for t in tt_sample ]
+        corr_deriv2_sample_real = np.real(corr_deriv2_sample)
+        corr_deriv2_interp = [fprime2(t) for t in tt_interp ]
+        corr_deriv2_interp_real = np.real(corr_deriv2_interp)
+        corr_deriv2_ifft_real = np.real(correlate_ifft(derivative_order=2))
+
+        # find true maximum according to correlation surface
+        optimal_tt_s = optimize.newton(fprime, tt_true, fprime=fprime2, maxiter=5)
+        tt_residual_s = optimal_tt_s - tt_true
+        print(f'tt_residual_s (magnitude) = {np.absolute(tt_residual_s)}')
 
 
-    correlate = partial(correlate_impl, wave_coeffs, sinc_coeffs, freqs, duration_s)
+        plt.figure()
+        plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
+        plt.plot(tt_interp, corr_interp_real, 'b-', fillstyle='none', label=r'corr$(\tau)$')
+        plt.plot(tt_sample, corr_sample_real, 'b.', fillstyle='none')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.xlabel('time [s]')
+        plt.title(f'realistic correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
+        plt.legend()
 
-    tt_interp = np.linspace(tau_true + -duration_s*shrink_factor, 
-                            tau_true +duration_s*shrink_factor, 
-                            N_interp)
-    corr_interp = [correlate(t) for t in tt_interp ]
-    corr_interp_real = np.real(corr_interp)
+        plt.figure()
+        plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
+        plt.plot(tt_interp, corr_deriv1_interp_real, 'g-', fillstyle='none', label=r'$\frac{d}{d\tau}$ corr$(\tau)$')
+        plt.plot(tt_sample, corr_deriv1_sample_real, 'g.', fillstyle='none')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv1_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.title(rf'realistic $\frac{{d}}{{d\tau}}$ correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
+        plt.xlabel('time [s]')
+        plt.legend()
 
-    # compute derivative
-    fprime = lambda tau: correlate(tau, derivative_order=1)
-    corr_deriv1_interp = [fprime(t) for t in tt_interp ]
-    corr_deriv1_interp_real = np.real(corr_deriv1_interp)
-
-    fprime2 = lambda tau: correlate(tau, derivative_order=2)
-    corr_deriv2_interp = [fprime2(t) for t in tt_interp ]
-    corr_deriv2_interp_real = np.real(corr_deriv2_interp)
-
-    # find true maximum according to correlation surface
-    optimal_tau_s = optimize.newton(fprime, tau_true, fprime=fprime2, maxiter=5)
-    tau_residual_s = optimal_tau_s - tau_true
-    print(f'tau_residual_s (magnitude) = {np.absolute(tau_residual_s)}')
-
-    plt.figure()
-    plt.plot(tt_sample, sinc_sample, '-', fillstyle='none')
-    plt.axvline(duration_s*0.5, color='r', linestyle='--')
-    plt.title('sinc(t)')
-
-    plt.figure()
-    plt.plot(tt_sample, wave_sample, '-', fillstyle='none')
-    plt.axvline(sinc_center_s, color='r', linestyle='--')
-    plt.title('wave(t) + sinc(t)')
-
-    plt.figure()
-    plt.axvline(tau_true, color='r', linestyle='--')
-    plt.plot(tt_interp, corr_interp_real, 'b-', fillstyle='none')
-    plt.title(f'correlation surface (real) around peak (+/-{shrink_factor*100}% of period)')
-    plt.legend(['expected peak location', 'surface(tau)'])
-
-
-    plt.figure()
-    plt.axvline(tau_true, color='r', linestyle='--')
-    plt.plot(tt_interp, corr_deriv1_interp_real, 'g-', fillstyle='none')
-    plt.title(f'correlation surface d1 (real) around peak (+/-{shrink_factor*100}% of period)')
-    plt.legend(['expected peak location', 'surface(tau)', 'surface(tau) deriv1'])
-
-    plt.figure()
-    plt.axvline(tau_true, color='r', linestyle='--')
-    plt.plot(tt_interp, corr_deriv2_interp_real, 'k-', fillstyle='none')
-    plt.title(f'correlation surface d2 (real) around peak (+/-{shrink_factor*100}% of period)')
-    plt.legend(['expected peak location', 'surface(tau) deriv2'])
-
-    plt.figure()
-    plt.plot(freqs, np.absolute(wave_coeffs), 'r')
-    plt.plot(freqs, np.absolute(sinc_coeffs), 'b')
-    plt.legend(['wave(t)', 'sinc(t)'])
-    plt.title('coeff mag')
-
-
-
-    # test FFT based reconstruction
-
-    block_size = 128*2
-    cd_sample_freq = 44100
-    duration_s=block_size/cd_sample_freq
-    sinusoid_amp_freq_list = [(1.0,10.987E3), (0.5,7.54E3), (0.7,7.23E3)]
-    sinc_func = sinc
-    wave_sample = [i % 17 for i in range(block_size)]
-
-    N_sample = block_size
-
-    period_sample = duration_s / float(N_sample)
-
-
-    # create sinc
-    sinc_center_s = (block_size*0.5)*period_sample
-    sinc_amplitude = 1
-    sinc_freq = 10E3
-    _, sinc_sample = create_sinc(period_sample, 
-                                 duration_s=duration_s, 
-                                 center_s=0.5*duration_s, 
-                                 amplitude=sinc_amplitude, 
-                                 freq=sinc_freq, 
-                                 func=sinc_func)
-
-    wave_coeffs = np.fft.fft(wave_sample)
-    sinc_coeffs = np.fft.fft(sinc_sample)
-    freqs = np.fft.fftfreq(N_sample, d=period_sample)
+        plt.figure()
+        plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
+        plt.plot(tt_interp, corr_deriv2_interp_real, 'k-', fillstyle='none', label=r'$\frac{d^2}{d\tau^2}$ corr$(\tau)$')
+        plt.plot(tt_sample, corr_deriv2_sample_real, 'k.', fillstyle='none')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv2_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.title(rf'realistic $\frac{{d^2}}{{d\tau^2}}$ correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
+        plt.xlabel('time [s]')
+        plt.legend()
 
     plt.figure()
-    tt = np.linspace(0, duration_s-period_sample, N_sample)
-    # tt = np.linspace(0 + -0.5*duration_s, 
-    #                         0 +0.5*duration_s, 
-    #                         N_sample)
-    corr_interp = [correlate_impl(sinc_coeffs, wave_coeffs, freqs, duration_s, t)[0] for t in tt ]
-    plt.plot(corr_interp)
-
-    mult = np.conj(sinc_coeffs) * wave_coeffs
-    ifft_result = np.fft.ifft(mult)
-    ifft_result = ifft_result / N_sample * duration_s
-    plt.plot(ifft_result)
-    plt.legend(["manually gen'd corr", 'ifft based corr'])
-
+    plt.plot(freqs, np.absolute(wave_coeffs), 'r.-', label='coeff env(t)+sinc(t)')
+    plt.plot(freqs, np.absolute(sinc_coeffs), 'b.-', label='coeff sinc(t)')
+    plt.xlabel('freq [Hz?]')
+    plt.legend()
+    plt.title('realistic frequency coefficient magnitude')
 
 
 def make_performance_plots():
@@ -469,10 +498,10 @@ def make_performance_plots():
                                                  full_output=True, disp=False)
         optimal_tau_s = optimal_tau_s[0]
         if not results.converged or results.iterations==max_iterations:
-            optimal_tau_s = np.NaN
+            optimal_tau_s = np.nan
         tau_residual_s = optimal_tau_s - tau_true
         if np.abs(tau_residual_s) > period_sample:
-            tau_residual_s = np.NaN
+            tau_residual_s = np.nan
 
         if np.isnan(tau_residual_s):
 
@@ -493,7 +522,7 @@ def make_performance_plots():
                 plt.axvline(optimal_tau_s, color='g', linestyle='--')
                 plt.plot(taus_brute_force, corr, 'b-', fillstyle='none')
                 plt.title(f'correlation surface brute force search')
-                plt.legend(['tau_true', 'tau_guess', 'tau_optimal', 'surface(tau)'])
+                plt.legend(['tau_true', 'tau_guess', 'tau_optimal', r'$surface(\tau)$'])
                 plt.show()
             pass
         
@@ -635,12 +664,13 @@ def make_performance_plots():
 
 if __name__ == "__main__":
 
-    # show_sinc()
-    # test_reconstruction()
-    # test_correlation()
+    show_sinc(freq=10)
+    show_sinc(freq=20)
+    test_reconstruction()
+    test_correlation()
     test_correlation_realistic_numbers()
-    # make_performance_plots()
+    make_performance_plots()
 
 
-    # multipage('results')
+    multipage(folder_name='saved_figs', prefix='')
     plt.show()
