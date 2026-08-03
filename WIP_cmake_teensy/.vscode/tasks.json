@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure",
+            "type": "shell",
+            "command": "cmake -B build -G Ninja"
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "cmake --build build"
+        },
+        {
+            "label": "Flash",
+            "type": "shell",
+            "command": "teensy_loader_cli --mcu=TEENSY41 -w -v -r build/hello.hex"
+        }
+    ]
+}

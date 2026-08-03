@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if ! command -v "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" >/dev/null; then
+    echo "teensy_loader_cli not found"
+    exit 1
+fi
+
+"$ROOT/tools/teensy_loader_cli/teensy_loader_cli" \
+    --mcu=TEENSY41 \
+    -w \
+    -v \
+    -r \
+    "$ROOT/build/my_firmware.hex"

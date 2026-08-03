@@ -1,0 +1,39 @@
+{
+    "version": 3,
+
+    "configurePresets": [
+        {
+            "name": "teensy41-debug",
+            "displayName": "Teensy 4.1 Debug",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "toolchainFile": "${sourceDir}/cmake/toolchain/teensy41.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "teensy41-release",
+            "displayName": "Teensy 4.1 Release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "toolchainFile": "${sourceDir}/cmake/toolchain/teensy41.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+
+    "buildPresets": [
+        {
+            "name": "teensy41-debug",
+            "displayName": "Build Teensy 4.1 Debug",
+            "configurePreset": "teensy41-debug"
+        },
+        {
+            "name": "teensy41-release",
+            "displayName": "Build Teensy 4.1 Release",
+            "configurePreset": "teensy41-release"
+        }
+    ]
+}
