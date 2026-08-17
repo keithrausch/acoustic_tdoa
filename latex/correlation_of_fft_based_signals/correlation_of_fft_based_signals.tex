@@ -67,7 +67,7 @@ Complex Conjugate Properties:
 \end{align}
 
 %\begin{given}
-Given 2 signals with $N$ samples, where $N$ is even:
+Given 2 signals with $N$ samples, where $N$ is even, $A  = \mathcal{F}\{y_1\}$, and $B  = \mathcal{F}\{y_2\}$:
 \begin{align}
 y_1(t) & = \sum_{m = -N/2}^{N/2-1} A_m \exp{[\twopii f_m t]} \\
 y_2(t) & = \sum_{m = -N/2}^{N/2-1} B_m \exp{[\twopii f_m t]}
@@ -135,18 +135,23 @@ Since $n=m$, the summation can be simplified:
 \end{align}
 
 Finally:
-\boxalign[0.7\textwidth]{
+\boxalign[0.8\textwidth]{
 \begin{align}
-(y_1 \star y_2) (\tau) & = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{[\twopii f_m \tau]}
+(y_1 \star y_2) (\tau) & = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{[\twopii f_m \tau]} \\
+&= \mathcal{F}^{-1}\{\overline{A} B\}
 \end{align}
 }
 
-Differentiating with respect to $\tau$:
-\boxalign[0.7\textwidth]{
+Differentiating with respect to $\tau$ is fairly straight forward, but has a catch in it. Most terms in the sum have have complex conjugate coefficients at negative frequencies that cancel their imaginary components to produce real-valued derivatives. The DC and Nyquist frequencies, however, are guaranteed to be purely real and do not have mates to cancel them. This means that multiplication  by $(\twopii)^{n}$ will introduce imaginary components into odd powered derivatives that shouldn't exist. This is an artifact of the Discrete Fourier Transform and arises from the fact that the Nyquist frequency aliases its own negative counterpart (since both the $+f$ and $-f$ Nyquist frequencies evaluate to $-1, +1, -1, +1, ...$). If the DFT generated two Nyquist coefficients at frequencies opposite in sign, then they would cancel like the rest of the terms and we would not need to manually intervene. The DC frequency would also be a problem, but differentiating it automatically sets it to $0$ for us.
+\boxalign[0.8\textwidth]{
 \begin{align}
-\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) & = (\twopii)^{n} T \sum_{m = -N/2}^{N/2-1} f_m^n \overline{A_m} B_m \exp{[\twopii f_m \tau]}
+\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) & = (\twopii)^{n} T \sum_{m = -N/2}^{N/2-1} f_m^n \overline{A_m} B_m \exp{[\twopii f_m \tau]} \\
+&= (\twopii)^{n} T \mathcal{F}^{-1}\{f^n \overline{A} B\} \\
+&\text{where $f^n_{-N/2} = 0$ for odd n}
 \end{align}
 }
+
+\pagebreak
 
 Let's apply the ideas of Cooley and Tukey and decimate the FFT into even and odd components that can be reused. Remember that $f_m = \frac{m}{dN} = \frac{m}{T}$. For brevity, lets set $C_m = f_m^n \overline{A_m} B_m $
 \begin{align}
@@ -194,19 +199,19 @@ Finally, the butterfly appears:
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\newpage
-You can arrive at the same conclusion by converting to the frequency domain:
-\begin{align}
-(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{y_1(t)} y_2(t+\tau) \,dt \\
-\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[y_1(t)\right]} \mathfrak{F}\left[y_2(t+\tau)\right] \\
-\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[\left( \sum_{m = -N/2}^{N/2-1} A_m \exp{[\twopii f_m t]} \right)\right]} \mathfrak{F}\left[\left( \sum_{n = -N/2}^{N/2-1} B_n \exp{[\twopii f_n (t+\tau)]} \right)\right] \\
-\mathfrak{F}[f \star g](\tau) & =  \left( \sum_{m = -N/2}^{N/2-1} \overline{A_m} \twopi \delta (\omega - \twopi f_m) \right) \left( \sum_{n = -N/2}^{N/2-1} B_n \twopi  \delta(\twopii f_n) \exp{[-\twopii f_n \tau]} \right) \\
-\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \sum_{n = -N/2}^{N/2-1} \overline{A_m} B_n \twopi  \delta (\omega - \twopi f_m) \twopi  \delta \left(\omega - \twopii f_n \right) \exp{[-\twopii f_n \tau]} \\
-\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \twopi \delta (\omega - \twopi f_m)  \twopi \delta \left(\omega - \twopii f_m \right) \exp{[-\twopii f_n \tau]} \\
-\mathfrak{F}[f \star g](\tau) & = (\twopi )^2 \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \delta (\omega - \twopi f_m)  \exp{[-\twopii f_n \tau]}
-\end{align}
-
-
+%\newpage
+%You can arrive at the same conclusion by converting to the frequency domain:
+%\begin{align}
+%(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{y_1(t)} y_2(t+\tau) \,dt \\
+%\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[y_1(t)\right]} \mathfrak{F}\left[y_2(t+\tau)\right] \\
+%\mathfrak{F}[f \star g](\tau) & =  \overline{\mathfrak{F}\left[\left( \sum_{m = -N/2}^{N/2-1} A_m \exp{[\twopii f_m t]} \right)\right]} \mathfrak{F}\left[\left( \sum_{n = -N/2}^{N/2-1} B_n \exp{[\twopii f_n (t+\tau)]} \right)\right] \\
+%\mathfrak{F}[f \star g](\tau) & =  \left( \sum_{m = -N/2}^{N/2-1} \overline{A_m} \twopi \delta (\omega - \twopi f_m) \right) \left( \sum_{n = -N/2}^{N/2-1} B_n \twopi  \delta(\twopii f_n) \exp{[-\twopii f_n \tau]} \right) \\
+%\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \sum_{n = -N/2}^{N/2-1} \overline{A_m} B_n \twopi  \delta (\omega - \twopi f_m) \twopi  \delta \left(\omega - \twopii f_n \right) \exp{[-\twopii f_n \tau]} \\
+%\mathfrak{F}[f \star g](\tau) & =  \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \twopi \delta (\omega - \twopi f_m)  \twopi \delta \left(\omega - \twopii f_m \right) \exp{[-\twopii f_n \tau]} \\
+%\mathfrak{F}[f \star g](\tau) & = (\twopi )^2 \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_m \delta (\omega - \twopi f_m)  \exp{[-\twopii f_n \tau]}
+%\end{align}
+%
+%
 \end{derivation}
 %\end{sol}
 
