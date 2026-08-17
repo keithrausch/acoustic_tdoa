@@ -1,0 +1,84 @@
+\documentclass[11pt]{beamer}
+
+\input{preamble}
+
+%------------------------------------------------
+% Document
+%------------------------------------------------
+\begin{document}
+	
+	%------------------------------------------------
+	% Title Slide
+	%------------------------------------------------
+	\begin{frame}
+		\titlepage
+	\end{frame}
+	
+	%------------------------------------------------
+	% Outline
+	%------------------------------------------------
+	\begin{frame}{Outline}
+		\tableofcontents
+	\end{frame}
+	c
+	
+	
+%	\begin{frame}{Method Overview}
+%		\begin{enumerate}
+%			\item Task: build an audio-based motion capture suite
+%			\item explain the challenges (accurate TDOA)
+%			\item Step 3
+%		\end{enumerate}
+%	\end{frame}
+	
+	% show definition of TDOA (geometry plot)
+	% show sync signal. show raw audio
+	% show combined  sync+raw audio
+	% definition of correlation
+	% express correlation with frequency representation
+	% show  resultant correlation expression as an inner product. as well as derivatives
+	%  talk about new fft library and butterfly (DIT, DIF). show that we only need some coefficients but FFT is still faster to compute
+	% start showing performance plots for niaeve implemenattion vs butterfly implementation vs derivatives  
+	% 
+	
+	\input{sections/intro_overview}
+	\input{sections/intro_tdoa}
+	\input{sections/intro_fourier}
+	
+	\section{XXX}
+	
+	define correlation, show derived expressions for signal correlation 
+	
+	show that unclean frequency seperation leads to inaccurate peak finding
+
+	
+	
+	\input{sections/example_equation}
+	\input{sections/example_code}
+	\input{sections/example_figure}
+	\input{sections/example_table}
+    \input{sections/example_discussion}	
+    \input{sections/example_conclusion}
+	
+	
+	%------------------------------------------------
+	% References
+	%------------------------------------------------
+	
+	\begin{frame}[allowframebreaks]{References}
+		
+		\bibliographystyle{plain}
+		\bibliography{references}
+		
+	\end{frame}
+	
+	%------------------------------------------------
+	% Questions
+	%------------------------------------------------
+	
+	\begin{frame}
+		\centering
+		\Huge Questions?
+	\end{frame}
+	
+\end{document}

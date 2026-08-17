@@ -1,0 +1,36 @@
+
+
+\section{What, Why, How}
+
+\begin{frame}{Goal}
+	\begin{itemize}
+		\item Let's build a motion capture suite using microphones and speakers
+		\item Think \href{https://www.lightningmaps.org/\#m=ses;t=3;s=0;o=0;b=;ts=0;z=5;y=35.9448;x=-87.045;d=2;dl=2;dc=0;}{real-time lightening map}
+		\item Joint self-calibration and localization in multi-emitter multi-receiver system
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{How}
+	\begin{itemize}
+		\item Use Time Difference of Arrival (TDOA) of a known chirp to estimate receiver/emitter geometry
+		\item The more accurate the TDOA estimates, the more accurate  our receiver/emitter geometry estimates can be
+		\item Typical CD Sampling Frequency (44100Hz) insufficient - we can do better
+		\item Use frequency domain methods to resolve TDOA beyond the microphone sampling rate
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Mock Chirp}
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/06_example_sinct.pdf}
+		\caption{Asymptotically approaches 0 at $\pm \infty$}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Mock Microphone Recording}
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/07_example_envt_sinct.pdf}
+		\caption{Template matching in the time domain is intractable (unlike in the image domain)}
+	\end{figure}
+\end{frame}

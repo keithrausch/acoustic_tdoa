@@ -1,0 +1,119 @@
+
+\section{What is TDOA}
+
+\begin{frame}{Time Difference of Arrival Geometry}
+	\begin{figure}
+	\centering
+	\begin{tikzpicture}[scale=0.5,>=Latex]
+		
+		%----------------------------------------
+		% Receiver locations
+		%----------------------------------------
+		\coordinate (R1) at (2.5,0);
+		\coordinate (R2) at (-2.5,0);
+		
+		%----------------------------------------
+		% Source
+		%----------------------------------------
+		\coordinate (S) at (3.6,3.0);
+		
+		%----------------------------------------
+		% Compute distances
+		%----------------------------------------
+		\path let \p1 = ($(R1)-(S)$) in
+		\pgfextra{\xdef\radius{veclen(\x1,\y1)}};
+		
+		\path let \p1 = ($(R2)-(S)$) in
+		\pgfextra{\xdef\distSRtwo{veclen(\x1,\y1)}};
+		
+		%----------------------------------------
+		% Hyperbola locus
+		% Shifted to align with receiver geometry
+		%----------------------------------------
+		% Receiver locations
+		\coordinate (R1) at (2.5,0);
+		\coordinate (R2) at (-2.5,0);
+		
+		% Source location
+		\coordinate (S) at (3.6,3.0);
+		
+		
+		%----------------------------------------
+		% Compute hyperbola coefficients
+		%----------------------------------------
+		
+		% c = half receiver spacing
+		\pgfmathsetmacro{\cval}{2.5}
+		
+		% Distances from source to receivers
+		\pgfmathsetmacro{\distOne}{sqrt((3.6-2.5)^2+(3.0)^2)}
+		\pgfmathsetmacro{\distTwo}{sqrt((3.6+2.5)^2+(3.0)^2)}
+		
+		\pgfmathsetmacro{\aval}{abs(\distTwo-\distOne)/2}
+		
+		% b = sqrt(c^2-a^2)
+		\pgfmathsetmacro{\bval}{sqrt(\cval*\cval-\aval*\aval)}
+		
+		% midpoint of receivers
+		\pgfmathsetmacro{\xcenter}{(2.5+(-2.5))/2}
+		
+		% Right branch of hyperbola
+		\draw[gray,thin,samples=200,smooth,domain=-2:2]
+		plot ({\xcenter+\aval*cosh(\x)}, {\bval*sinh(\x)});
+		
+		%\node[blue] at (1.0,2.2) {Hyperbola};
+		
+		%----------------------------------------
+		% Circle centered at source through R1
+		%----------------------------------------
+		\draw[gray,thick] (S) circle (\radius);
+		
+		%----------------------------------------
+		% Point where S-R2 line intersects circle
+		%----------------------------------------
+		\pgfmathsetmacro{\ratio}{\radius/\distSRtwo}
+		\coordinate (P) at ($(S)!\ratio!(R2)$);
+		
+		%----------------------------------------
+		% Radius d to nearer receiver
+		%----------------------------------------
+		\draw[very thick]
+		(S)--(R1)
+		node[midway,above right] {$d$};
+		
+		%----------------------------------------
+		% Same distance toward R2
+		%----------------------------------------
+		\draw[very thick]
+		(S)--(P);
+		
+		%----------------------------------------
+		% Excess path length
+		%----------------------------------------
+		\draw[very thick,dashed,red]
+		(P)--(R2)
+		node[midway,below] {$\Delta d$};
+		
+		%----------------------------------------
+		% Points
+		%----------------------------------------
+		\fill (R1) circle (2pt);
+		\fill (R2) circle (2pt);
+		\fill[red] (S) circle (2.5pt);
+		
+		\node[below] at (R1) {$R_1$};
+		\node[below] at (R2) {$R_2$};
+		\node[above left] at (S) {S};
+		
+	\end{tikzpicture}
+	\caption{Example TDOA Locus. $S$ is a source, $R$ is a receiver pair, and $\Delta d$ is the difference in arrival times expressed as an equivalent distance. The half hyperbola shows the set of possible source locations for a given $\Delta d$. }
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Where We Are Going}
+	\begin{figure}
+		\centering
+		\includegraphics[width=1.0 \textwidth]{../../python_trilateration_sandbox/tdoa/loci_from_truth_points_2d.png}
+		\caption{Pairwise receiver-emitter TDOA locus (2D)}
+	\end{figure}
+\end{frame}

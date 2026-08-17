@@ -1,0 +1,27 @@
+# Core auxiliary files
+*.aux
+*.log
+*.toc
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Bibliography artifacts
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+
+# Final compilation output (optional but recommended)
+*.pdf
+*.dvi
+*.ps
+
+
+# other?
+*.nav
+*.snm
+*.vrb
