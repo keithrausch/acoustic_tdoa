@@ -9,6 +9,23 @@ import tdoa_algos as tdoa
 from plotting_utils import plot_points, plot_half_hyperbolas
 from chatgpt_example_dds import generate_scene
 
+plt.rcParams.update(
+    {
+        'figure.figsize': (10, 6),  # Larger physical canvas size
+        'font.size': 16,  # Base global font size
+        'axes.labelsize': 18,  # Axis label size (X and Y)
+        'axes.titlesize': 20,  # Plot title size
+        'xtick.labelsize': 14,  # Numbers on X-axis
+        'ytick.labelsize': 14,  # Numbers on Y-axis
+        'legend.fontsize': 14,  # Legend text size
+        'lines.linewidth': 3.0,  # Thicker plot lines
+        'lines.markersize': 10,  # Larger data points/markers
+        'axes.linewidth': 2.0,  # Thicker box/spines around plot
+        'xtick.major.width': 2.0,  # Thicker tick marks
+        'ytick.major.width': 2.0,
+    }
+)
+
 
 def screen_info():
     screen_width_inches = 19.2 
