@@ -46,7 +46,8 @@ if [ "$PKG" = "apt" ]; then
         gdb-multiarch \
         libnewlib-arm-none-eabi \
         make \
-        libusb1-devel
+        libusb1-devel \
+        gtest-devel
 else
     sudo dnf install -y \
         git \
@@ -57,7 +58,8 @@ else
         gcc \
         gcc-c++ \
         libusb1-devel libusb-compat-0.1-devel \
-        arm-none-eabi-gcc arm-none-eabi-gcc-c++ arm-none-eabi-newlib arm-none-eabi-binutils
+        arm-none-eabi-gcc arm-none-eabi-gcc-c++ arm-none-eabi-newlib arm-none-eabi-binutils \
+        gtest-devel
 fi
 
 ############################################

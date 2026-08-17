@@ -3,37 +3,99 @@
 
     "configurePresets": [
         {
+            "name": "host-debug",
+            "displayName": "Host Debug",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/host-debug",
+
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTING": "ON",
+                "BUILD_TEENSY": "OFF"
+            }
+        },
+
+        {
+            "name": "host-release",
+            "displayName": "Host Release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/host-release",
+
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTING": "ON",
+                "BUILD_TEENSY": "OFF"
+            }
+        },
+
+        {
             "name": "teensy41-debug",
             "displayName": "Teensy 4.1 Debug",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build/teensy41-debug",
+
             "toolchainFile": "${sourceDir}/cmake/toolchain/teensy41.cmake",
+
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTING": "OFF",
+                "BUILD_TEENSY": "ON"
             }
         },
+
         {
             "name": "teensy41-release",
             "displayName": "Teensy 4.1 Release",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build/teensy41-release",
+
             "toolchainFile": "${sourceDir}/cmake/toolchain/teensy41.cmake",
+
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTING": "OFF",
+                "BUILD_TEENSY": "ON"
             }
         }
     ],
 
     "buildPresets": [
         {
+            "name": "host-debug",
+            "displayName": "Build Host Debug",
+            "configurePreset": "host-debug"
+        },
+
+        {
+            "name": "host-release",
+            "displayName": "Build Host Release",
+            "configurePreset": "host-release"
+        },
+
+        {
             "name": "teensy41-debug",
             "displayName": "Build Teensy 4.1 Debug",
             "configurePreset": "teensy41-debug"
         },
+
         {
             "name": "teensy41-release",
             "displayName": "Build Teensy 4.1 Release",
             "configurePreset": "teensy41-release"
+        }
+    ],
+
+    "testPresets": [
+        {
+            "name": "host-debug",
+            "displayName": "Test Host Debug",
+            "configurePreset": "host-debug"
+        },
+
+        {
+            "name": "host-release",
+            "displayName": "Test Host Release",
+            "configurePreset": "host-release"
         }
     ]
 }

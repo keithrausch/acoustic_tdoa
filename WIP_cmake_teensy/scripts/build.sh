@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 # Priority:
+#
 # 1. CLI argument
 # 2. CMake Tools environment
 # 3. Default
@@ -19,19 +20,6 @@ elif [[ -n "${CMAKE_CONFIGURE_PRESET:-}" ]]; then
 else
     PRESET="teensy41-release"
 fi
-
-case "$PRESET" in
-    teensy41-debug|teensy41-release)
-        ;;
-    *)
-        echo "Unknown preset: $PRESET"
-        echo
-        echo "Usage:"
-        echo "  $0 teensy41-debug"
-        echo "  $0 teensy41-release"
-        exit 1
-        ;;
-esac
 
 echo "Building preset: $PRESET"
 
