@@ -187,15 +187,23 @@ namespace utils
                 for (size_t o = 1; o < NderivativeBuffers; ++o)
                 {
                     coeffs_a_for_fft[o][i] = coeffs_a_for_fft[o-1][i]*freq * constants::twopij;
+                    coeffs_a_for_manual_reconstruction[o][i] = coeffs_a_for_manual_reconstruction[o-1][i]*freq * constants::twopi;
+                }
 
-                    if (is_dc_ny && (o % 2 == 1)) // only apply to odd ordered derivatives. DC is fine too.
+                // zero out the Nyquist coefficient for odd ordered derivatives. 
+                // we can 0 the dc term too, it was already going to be 0
+                //
+                // see https://math.mit.edu/~stevenj/fft-deriv.pdf for why we do this. TLDR, the 
+                // Nyquist coeff is purely real (for purely real inputs) and, unlike all other 
+                // frequencies (except DC), it doesnt have a complex conjugate term to cancel its 
+                // imaginary part out. so when we take the derivative for the Nyquist term, 
+                // suddenly our derivative gets an imaginary component
+                if (is_dc_ny)
+                {
+                    for (size_t o = 1; o < NderivativeBuffers; o+=2)
                     {
-                        // just throw the Nyquist term away. its cool. it keeps things real ;)
-                        // https://math.mit.edu/~stevenj/fft-deriv.pdf
                         coeffs_a_for_fft[o][i] *= 0.0;
                     }
-
-                    coeffs_a_for_manual_reconstruction[o][i] = coeffs_a_for_manual_reconstruction[o-1][i]*freq * constants::twopi;
                 }
             }
 

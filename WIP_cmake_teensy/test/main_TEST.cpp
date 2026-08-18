@@ -20,19 +20,28 @@ static utils::WaveParams get_offset_params(types::Precision sample_period_s, con
 }
 
 template <typename T>
-void assert_eq(const T& arrA, const T& arrB, double tol=1E-10)
+void assert_eq(const T& arrA, const T& arrB, double abs_tol = 1E-6, double rel_tol = 1E-6/*1E-12*/)
 {
-        types::Precision total_error = 0;
-        for (size_t i = 0; i < arrA.size(); ++i)
-        {
-            auto this_error = std::abs(arrA[i] - arrB[i]);
-            // std::cout << arrA[i] / arrB[i] << "\n";
-            total_error += this_error * this_error;
-        }
-        total_error = std::sqrt(total_error);
-        std::cout << "total error: " << total_error << "\n";
-        std::cout << "average error: " << total_error/arrA.size() << "\n";
-        ASSERT_LT(total_error, tol);
+    for (size_t i = 0; i < arrA.size(); ++i)
+    {
+        const auto a = arrA[i];
+        const auto b = arrB[i];
+
+        const auto abs_error = std::abs(a - b);
+        const auto scale = std::max(std::abs(a), std::abs(b));
+
+        const auto tolerance =
+            abs_tol + rel_tol * scale;
+
+        ASSERT_LE(abs_error, tolerance)
+            << "i = " << i
+            << ", a = " << a
+            << ", b = " << b
+            << ", abs_error = " << abs_error
+            << ", tolerance = " << tolerance
+            << ", rel_error = "
+            << (scale > 0 ? abs_error / scale : 0.0);
+    }
 }
 
 template <size_t N>
@@ -537,9 +546,9 @@ TEST_FFT_R2C(BlockSize, domain::BlockSize)
 TEST_FFT_R2C(WindowSize, domain::WindowSize)
 
 
-TEST(FFTTest, DerivativeHelperViaFFT_Test)
+template <size_t derivative_order>
+void test_derivative_helper_on_derivative_order_over_full_window()
 {
-
     // chirp
     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
     auto chirp_params = utils::WaveParams{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 10E3};
@@ -564,8 +573,6 @@ TEST(FFTTest, DerivativeHelperViaFFT_Test)
     // derivative_helper.correlate_via_fft<0>(signal.coeffs);
     // fft.rescale(butterfly_results);
 
-
-    auto test_fft_results_against_manual_implementation_whole_window = [&]<size_t derivative_order>()
     {
         derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
 
@@ -583,10 +590,44 @@ TEST(FFTTest, DerivativeHelperViaFFT_Test)
             tau_s += tau_s_step;
         }
 
-        assert_eq(derivative_helper.correlation_surface[derivative_order], nsquared_results, 1E-8);
-    };
+        types::array_p<domain::WindowSize> resid;
+        for (size_t i = 0; i < resid.size(); ++i )
+        {
+            resid[i] = std::abs(derivative_helper.correlation_surface[derivative_order][i] - nsquared_results[i]);
+        }
 
-    auto test_fft_results_against_manual_implementation_mid_window = [&]<size_t derivative_order>()
+        utils::print("resid", resid);
+        assert_eq(derivative_helper.correlation_surface[derivative_order], nsquared_results);
+    }
+}
+
+template <size_t derivative_order>
+void test_derivative_helper_on_derivative_order_over_mid_window()
+{
+    // chirp
+    auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
+    auto chirp_params = utils::WaveParams{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 10E3};
+    auto chirp = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
+
+    // signal
+    types::array_p<domain::WindowSize> signal_input;
+    for (size_t i = 0; i < signal_input.size(); ++i)
+    {
+        signal_input[i] = i % 17;
+    }
+
+    utils::FFTHelper<domain::WindowSize> signal;
+    signal.reset();
+    signal.input = signal_input;
+    signal.transform();
+
+
+    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
+    derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
+
+    // derivative_helper.correlate_via_fft<0>(signal.coeffs);
+    // fft.rescale(butterfly_results);
+
     {
         derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
 
@@ -613,7 +654,7 @@ TEST(FFTTest, DerivativeHelperViaFFT_Test)
         for (size_t j = 0; j < domain::BlockSize/2; ++j)
         {
             auto offset = domain::BlockSize + domain::BlockSize/2;
-            fft_results_reordered[i++] = derivative_helper.correlation_surface[derivative_order][offset+i];
+            fft_results_reordered[i++] = derivative_helper.correlation_surface[derivative_order][offset+j];
         }
 
         // this is the "positive tau" side of the results. all the way from 0 to most positive
@@ -622,21 +663,39 @@ TEST(FFTTest, DerivativeHelperViaFFT_Test)
             fft_results_reordered[i++] = derivative_helper.correlation_surface[derivative_order][j];
         }
 
-        assert_eq(fft_results_reordered, nsquared_results, 1E-8);
-    };
-
-
-
+        // check each element is relatively close to truth
+        assert_eq(fft_results_reordered, nsquared_results);
+    }
     // fft.rescale(butterfly_results);
-
-    test_fft_results_against_manual_implementation_whole_window.template operator()<0>();
-    test_fft_results_against_manual_implementation_mid_window.template operator()<0>();
-    test_fft_results_against_manual_implementation_whole_window.template operator()<1>();
-    test_fft_results_against_manual_implementation_mid_window.template operator()<1>();
-    // test_fft_results_against_manual_implementation_whole_window.template operator()<2>();
-    // test_fft_results_against_manual_implementation_mid_window.template operator()<2>();
-
 }
+
+
+TEST(FFTTest, DerivativeHelperViaFFT_order0_full_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_full_window<0>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order0_mid_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_mid_window<0>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order1_full_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_full_window<1>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order1_mid_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_mid_window<1>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order2_full_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_full_window<2>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order2_mid_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_mid_window<2>();
+}
+
+
 
 // TEST(ReconstructionTest, ReconstructionTest)
 // {
