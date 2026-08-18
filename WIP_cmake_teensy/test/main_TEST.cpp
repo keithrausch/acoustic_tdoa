@@ -752,7 +752,7 @@ TEST(DerivativeHelperTest, DerivativeHelperTest)
     std::cout << "starting: ";
     // eval_and_print(guessed_tau_s);
     std::cout << "solution: ";
-    auto optimal_tau_s = std::get<0>(utils::newton(fd0_fd1_fd2, guessed_tau_s));
+    auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
     // eval_and_print(optimal_tau_s);
     std::cout << "tau_true: ";
     // eval_and_print(tau_true_s);
