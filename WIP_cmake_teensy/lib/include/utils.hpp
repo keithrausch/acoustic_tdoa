@@ -178,7 +178,7 @@ namespace utils
                     coeffs_a_for_manual_reconstruction[0][i] *= 2.0;
                 }
 
-                coeffs_a_for_dft[0][i] *= 2.0;
+                // coeffs_a_for_dft[0][i] *= 2.0;
                 coeffs_a_for_dft[0][i] /= (Nsamples*Nsamples);
                 coeffs_a_for_manual_reconstruction[0][i] /= (Nsamples*Nsamples);
 

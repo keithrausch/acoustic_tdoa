@@ -261,8 +261,8 @@ namespace utils
                 auto P = input[i];
                 auto Q = input[j];
                 auto W = twiddles[i];
-                auto Zx = types::Precision(0.5) * (P + Q);
-                auto Zy = types::Precision(0.5) * W * (P - Q);
+                auto Zx = /* types::Precision(0.5) * */ (P + Q);
+                auto Zy = /* types::Precision(0.5) * */ W * (P - Q);
                 auto Z = Zx + constants::j * Zy;
                 // auto Zm_conj = Zx - constants::j * Zy;
                 // auto Zm = std::conj(Zm_conj);
@@ -279,8 +279,8 @@ namespace utils
                 auto Q_conj = std::conj(Q); // pretend we have the redundant coeffs
                 auto W = twiddles[i];
 
-                auto Zx = types::Precision(0.5) * (P + Q_conj);
-                auto Zy = types::Precision(0.5) * W * (P - Q_conj);
+                auto Zx = /*types::Precision(0.5) * */ (P + Q_conj);
+                auto Zy = /*types::Precision(0.5) * */ W * (P - Q_conj);
                 
                 auto Z = Zx + constants::j * Zy;
                 auto Zm_conj = Zx - constants::j * Zy;
@@ -299,7 +299,7 @@ namespace utils
         template <typename T>
         void rescale(T &arr)
         {
-            constexpr types::Precision factor = 2.0 / Nsamples;
+            constexpr types::Precision factor = 1.0 / Nsamples; // NOTE: not multiplying by 2
             for (auto & element : arr)
             {
                 element *= factor;
@@ -374,14 +374,15 @@ namespace utils
             const auto dc = input[0];
             const auto nyquist = input[1];
 
-            output[0] = types::Precision(0.5) * (dc.real() + nyquist.real());
-            output[1] = types::Precision(0.5) * (dc.real() - nyquist.real());
+            output[0] = /* types::Precision(0.5) * */ (dc.real() + nyquist.real());
+            output[1] = /* types::Precision(0.5) * */ (dc.real() - nyquist.real());
+            // NOTE: removing *0.5 because we need to scale the output by 2
         }
 
         template <typename T>
         void rescale(T &arr)
         {
-            constexpr types::Precision factor = 2.0 / Nsamples;
+            constexpr types::Precision factor = 1.0 / Nsamples; // NOTE: not multipyling by 2
             for (auto & element : arr)
             {
                 element *= factor;
