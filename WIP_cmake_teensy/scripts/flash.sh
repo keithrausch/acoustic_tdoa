@@ -10,7 +10,5 @@ fi
 
 "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" \
     --mcu=TEENSY41 \
-    -w \
-    -v \
-    -r \
-    "$ROOT/build/my_firmware.hex"
+    -w -v `# -r`\
+    "$ROOT/build/teensy41-release/projects/teensy/projects_teensy_perf.hex"

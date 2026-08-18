@@ -13,12 +13,6 @@ constexpr types::Precision residual_s_tolerance = 0.5 * domain::sample_period_s;
 constexpr types::Precision residual_mm_tolerance_tight = 1.0;
 constexpr types::Precision residual_mm_tolerance_loose = 2.0;
 
-static utils::WaveParams get_offset_params(types::Precision sample_period_s, const utils::WaveParams &chirp_params, types::Precision offset_s)
-{
-    types::Precision sinc_insertion_time_s = chirp_params.center_s + offset_s;
-    return utils::WaveParams{.amplitude = chirp_params.amplitude, .center_s = sinc_insertion_time_s, .freq_hz = chirp_params.freq_hz};
-}
-
 template <typename T>
 void assert_eq(const T& arrA, const T& arrB, double abs_tol = 1E-6, double rel_tol = 1E-6/*1E-12*/)
 {
@@ -743,7 +737,7 @@ TEST(DerivativeHelperTest, DerivativeHelperTest)
 
     // signal
     auto offset_s = 0.52 * domain::sample_period_s;
-    auto signal_params = get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
@@ -755,8 +749,8 @@ TEST(DerivativeHelperTest, DerivativeHelperTest)
         return derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau);
     };
 
-    auto fd0_fd1 = [&](auto tau)
-    { return correlate_and_derive.template operator()<1>(tau); };
+    // auto fd0_fd1 = [&](auto tau)
+    // { return correlate_and_derive.template operator()<1>(tau); };
     auto fd0_fd1_fd2 = [&](auto tau)
     { return correlate_and_derive.template operator()<2>(tau); };
 
@@ -792,7 +786,7 @@ TEST(ExtremmaFinderTest, ExtremmaFinderTest)
 
     // signal
     auto offset_s = 0.52 * domain::sample_period_s;
-    auto signal_params = get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
@@ -843,7 +837,7 @@ TEST(IngestorTest, IngestorSimpleTest)
 
     // signal
     auto offset_s = 0.52 * domain::sample_period_s;
-    auto signal_params = get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
     tau_true_s += domain::block_period_s; // the peak is in the second block. this time is now in the absolute frame, not relative to the first block
@@ -1017,7 +1011,7 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
         detected.push_back(det);
     };
 
-    auto n_blocks = n_samples / domain::BlockSize;;// signal_inputs.size() / domain::BlockSize;
+    auto n_blocks = n_samples / domain::BlockSize;// signal_inputs.size() / domain::BlockSize;
     for (size_t block_index = 0; block_index < n_blocks; ++block_index)
     {
         size_t sample_index = block_index * domain::BlockSize;

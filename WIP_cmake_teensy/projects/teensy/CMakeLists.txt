@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(my_firmware C CXX ASM)
+# project(projects_teensy_ethernet_sandbox C CXX ASM)
 
 include(FetchContent)
 
 
 #
-# Teensy CMake macros
+# teensy cmake macros
 #
 FetchContent_Declare(
     teensy_cmake_macros
@@ -18,7 +18,7 @@ FetchContent_MakeAvailable(teensy_cmake_macros)
 
 include(${teensy_cmake_macros_SOURCE_DIR}/CMakeLists.include.txt)
 
-# Teensy core
+# teensy core
 import_arduino_library(
     cores
     ${teensy_cores_SOURCE_DIR}/teensy4
@@ -26,7 +26,7 @@ import_arduino_library(
     util
 )
 
-# SPI library
+# spi
 import_arduino_library_git(
     SPI
     https://github.com/PaulStoffregen/SPI.git
@@ -36,7 +36,7 @@ import_arduino_library_git(
 
 
 #
-# QNEthernet source
+# QNEthernet (not a native Arduino project so requires a lot of hand-holding)
 #
 FetchContent_Declare(
     QNEthernet
@@ -46,54 +46,46 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(QNEthernet)
 
-
-#
-# Gather every source file in the library
-#
 file(GLOB_RECURSE QNET_SOURCES CONFIGURE_DEPENDS
     ${qnethernet_SOURCE_DIR}/src/*.cpp
     ${qnethernet_SOURCE_DIR}/src/*.c
 )
 
-
-#
-# Build QNEthernet as a Teensy library
-#
-teensy_add_library(QNEthernet
+teensy_add_library(QNEthernet 
     ${QNET_SOURCES}
 )
 
-
-#
-# QNEthernet includes
-#
 target_include_directories(QNEthernet.o PUBLIC
     ${qnethernet_SOURCE_DIR}/src
     ${qnethernet_SOURCE_DIR}/src/lwip
 )
 
-
-#
-# QNEthernet-specific definitions only
-#
 target_compile_definitions(QNEthernet.o PUBLIC
     LWIP_PROVIDE_ERRNO
 )
 
 #
-# Application
+# executables
 #
-teensy_add_executable(my_firmware
-    main_ethernet.cpp
-)
 
-teensy_target_link_libraries(my_firmware
+# ethernet sandbox
+teensy_add_executable(projects_teensy_ethernet_sandbox main_ethernet.cpp)
+teensy_target_link_libraries(projects_teensy_ethernet_sandbox
     cores
     SPI
     QNEthernet
 )
-
 # set(CMAKE_EXE_LINKER_FLAGS "--specs=nano.specs" CACHE INTERNAL "") already provided by teensy-cmake-macros?
-target_link_libraries(my_firmware.elf
-    stdc++
+target_link_libraries(projects_teensy_ethernet_sandbox.elf stdc++)
+
+
+# perf
+teensy_add_executable(projects_teensy_perf main_perf.cpp)
+target_link_libraries(projects_teensy_perf.elf tdoa_utils)
+teensy_target_link_libraries(projects_teensy_perf
+    cores
+    SPI
+    QNEthernet
 )
+# set(CMAKE_EXE_LINKER_FLAGS "--specs=nano.specs" CACHE INTERNAL "") already provided by teensy-cmake-macros?
+target_link_libraries(projects_teensy_perf.elf stdc++)

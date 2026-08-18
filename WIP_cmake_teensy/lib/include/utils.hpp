@@ -38,6 +38,13 @@ namespace utils
         types::Precision freq_hz{1.0 / constants::twopi};
     };
 
+    // create a new set of WaveParams offset in time
+    static utils::WaveParams get_offset_params(types::Precision sample_period_s, const utils::WaveParams &chirp_params, types::Precision offset_s)
+    {
+        types::Precision sinc_insertion_time_s = chirp_params.center_s + offset_s;
+        return utils::WaveParams{.amplitude = chirp_params.amplitude, .center_s = sinc_insertion_time_s, .freq_hz = chirp_params.freq_hz};
+    }
+
     template <typename T>
     static T generic_sound(T t, const std::vector<WaveParams> &sin_params, const std::vector<std::pair<WaveParams, types::SoundFunctionT>> &chirp_params)
     {

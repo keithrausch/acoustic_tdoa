@@ -191,7 +191,7 @@ namespace utils
         private:
         typedef FFT_c2c_1d<Nsamples/2> FFT_c2c_1d_T;
         FFT_c2c_1d_T fft_c2c_1d;
-        FFT_c2c_1d_T::OutputT & twiddles{fft_c2c_1d.twiddles}; // parent twiddles are identical
+        typename FFT_c2c_1d_T::OutputT & twiddles{fft_c2c_1d.twiddles}; // parent twiddles are identical
 
         public:
         FFT_real_1d(types::Precision exponent_sign = -1)
