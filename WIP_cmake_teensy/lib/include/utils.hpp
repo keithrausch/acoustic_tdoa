@@ -336,7 +336,7 @@ namespace utils
             dft.reset();
         }
 
-        void transform_and_normalize_coefficients()
+        void transform()
         {
 
             dft.r2c(input, coeffs);
@@ -347,7 +347,7 @@ namespace utils
             utils::FFTHelper<Nsamples> chirp;
             chirp.reset();
             chirp.input = utils::create_template<Nsamples>(0, sample_period_s, chirp_func, chirp_params);
-            chirp.transform_and_normalize_coefficients();
+            chirp.transform();
 
             return chirp;
         }
@@ -647,7 +647,7 @@ namespace utils
 
             chirp.reset();
             chirp.input = chirp_input;
-            chirp.transform_and_normalize_coefficients();
+            chirp.transform();
             // chirp.conjugate();
 
             for (size_t channel_index = 0; channel_index < Nchannels; ++channel_index)
@@ -688,7 +688,7 @@ namespace utils
                 signal.input[i + BlockSize] = src[i];
             }
 
-            signal.transform_and_normalize_coefficients();
+            signal.transform();
 
             derivative_helper.template correlate_via_dft<0>(signal.coeffs);
             derivative_helper.template correlate_via_dft<1>(signal.coeffs);

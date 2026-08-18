@@ -555,7 +555,7 @@ TEST(FFTTest, DerivativeHelperViaDFT_Test)
     utils::FFTHelper<domain::WindowSize> signal;
     signal.reset();
     signal.input = signal_input;
-    signal.transform_and_normalize_coefficients();
+    signal.transform();
 
 
     utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
