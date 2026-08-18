@@ -35,7 +35,7 @@ namespace utils
     };
 
     template <size_t Nsamples>
-    class DFT_c2c_1d
+    class FFT_c2c_1d
     {
         // https://kovleventer.com/blog/fft_real/
 
@@ -52,14 +52,14 @@ namespace utils
 
         public:
 
-        DFT_c2c_1d(types::Precision exponent_sign = -1)
+        FFT_c2c_1d(types::Precision exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
         void reset(types::Precision exponent_sign = -1.0)
         {
-            static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "DFT can only be performed on window sizes that are powers of 2");
+            static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
             for (size_t k = 0; k < Ncoeffs; ++k)
             {
                 twiddles[k] = std::exp( exponent_sign * constants::twopij * static_cast<types::Precision>(k) / static_cast<types::Precision>(Nsamples*2));
@@ -147,7 +147,7 @@ namespace utils
     };
 
     template <>
-    class DFT_c2c_1d<1>
+    class FFT_c2c_1d<1>
     {
         public:
         constexpr static size_t Nsamples = 1;
@@ -157,7 +157,7 @@ namespace utils
 
         types::array_cp<Ncoeffs> twiddles; // necessary for r2c_1d<2>
 
-        DFT_c2c_1d(types::Precision exponent_sign = -1)
+        FFT_c2c_1d(types::Precision exponent_sign = -1)
         {
             reset(exponent_sign);
         }
@@ -179,7 +179,7 @@ namespace utils
     };
 
     template <size_t Nsamples>
-    class DFT_real_1d
+    class FFT_real_1d
     {
         // https://kovleventer.com/blog/fft_real/
 
@@ -189,12 +189,12 @@ namespace utils
         typedef types::array_p<Nsamples> RealsT;
         
         private:
-        typedef DFT_c2c_1d<Nsamples/2> DFT_c2c_1d_T;
-        DFT_c2c_1d_T dft_c2c_1d;
-        DFT_c2c_1d_T::OutputT & twiddles{dft_c2c_1d.twiddles}; // parent twiddles are identical
+        typedef FFT_c2c_1d<Nsamples/2> FFT_c2c_1d_T;
+        FFT_c2c_1d_T fft_c2c_1d;
+        FFT_c2c_1d_T::OutputT & twiddles{fft_c2c_1d.twiddles}; // parent twiddles are identical
 
         public:
-        DFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(types::Precision exponent_sign = -1)
         {
             reset(exponent_sign);
         }
@@ -202,14 +202,14 @@ namespace utils
         void reset(types::Precision exponent_sign = -1)
         {
             // static_assert(Nsamples > 2, "cant handle Nsamples == 1 or 2 yet");
-            static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "DFT can only be performed on window sizes that are powers of 2");
-            dft_c2c_1d.reset(exponent_sign);
+            static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
+            fft_c2c_1d.reset(exponent_sign);
         }
 
         void r2c(const RealsT &input, CoeffsT &output)
         {
-            typename DFT_c2c_1d_T::OutputT& complex_results = reinterpret_cast<typename DFT_c2c_1d_T::OutputT&>(output);
-            dft_c2c_1d.run(reinterpret_cast<const types::cPrecision*>(input.data()), complex_results);
+            typename FFT_c2c_1d_T::OutputT& complex_results = reinterpret_cast<typename FFT_c2c_1d_T::OutputT&>(output);
+            fft_c2c_1d.run(reinterpret_cast<const types::cPrecision*>(input.data()), complex_results);
 
             //
             // NOTE this chunk down here is a bit different than the article. i have to handle i=0 
@@ -292,7 +292,7 @@ namespace utils
             // static_assert(Nsamples % 4 == 0);
 
             // types::array_cp<Nsamples/2> temp = complex_buffer;
-            dft_c2c_1d.run(complex_buffer.data(), complex_buffer);
+            fft_c2c_1d.run(complex_buffer.data(), complex_buffer);
 
         }
 
@@ -308,7 +308,7 @@ namespace utils
     };
 
     template <>
-    class DFT_real_1d<1>
+    class FFT_real_1d<1>
     {
         // https://kovleventer.com/blog/fft_real/
 
@@ -318,7 +318,7 @@ namespace utils
         typedef types::array_cp<Ncoeffs> CoeffsT;
         typedef types::array_p<Nsamples> RealsT;
 
-        DFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(types::Precision exponent_sign = -1)
         {
             reset(exponent_sign);
         }
@@ -342,7 +342,7 @@ namespace utils
     };
 
     template <>
-    class DFT_real_1d<2>
+    class FFT_real_1d<2>
     {
         // https://kovleventer.com/blog/fft_real/
 
@@ -352,7 +352,7 @@ namespace utils
         typedef types::array_cp<Ncoeffs> CoeffsT;
         typedef types::array_p<Nsamples> RealsT;
 
-        DFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(types::Precision exponent_sign = -1)
         {
             reset(exponent_sign);
         }

@@ -398,20 +398,20 @@ void run_c2c_test_for_Nsamples()
         element = types::cPrecision(dis(gen), dis(gen));
     }
 
-    utils::DFT_c2c_1d<Nsamples> forward;
+    utils::FFT_c2c_1d<Nsamples> forward;
     forward.reset();
 
     // run new method
-    typename utils::DFT_c2c_1d<Nsamples>::OutputT coeffs;
+    typename utils::FFT_c2c_1d<Nsamples>::OutputT coeffs;
     coeffs.fill(0);
     forward.run(input.data(), coeffs);
 
 
-    utils::DFT_c2c_1d<Nsamples> inverse;
+    utils::FFT_c2c_1d<Nsamples> inverse;
     inverse.reset(+1.0);
 
     // run new method
-    typename utils::DFT_c2c_1d<Nsamples>::OutputT reconstruct;
+    typename utils::FFT_c2c_1d<Nsamples>::OutputT reconstruct;
     reconstruct.fill(0);
     inverse.run(coeffs.data(), reconstruct);
     inverse.rescale(reconstruct);
@@ -422,23 +422,23 @@ void run_c2c_test_for_Nsamples()
     assert_eq(input, reconstruct);
 }
 
-#define TEST_DFT_C2C(NAME, N)              \
-TEST(FFTTest, DFT_C2C_##NAME)              \
+#define TEST_FFT_C2C(NAME, N)              \
+TEST(FFTTest, FFT_C2C_##NAME)              \
 {                                          \
     run_c2c_test_for_Nsamples<N>();        \
 }
 
-TEST_DFT_C2C(N1, 1)
-TEST_DFT_C2C(N2, 2)
-TEST_DFT_C2C(N4, 4)
-TEST_DFT_C2C(N8, 8)
-TEST_DFT_C2C(N16, 16)
-TEST_DFT_C2C(N32, 32)
-TEST_DFT_C2C(N64, 64)
-TEST_DFT_C2C(N128, 128)
-TEST_DFT_C2C(N256, 256)
-TEST_DFT_C2C(BlockSize, domain::BlockSize)
-TEST_DFT_C2C(WindowSize, domain::WindowSize)
+TEST_FFT_C2C(N1, 1)
+TEST_FFT_C2C(N2, 2)
+TEST_FFT_C2C(N4, 4)
+TEST_FFT_C2C(N8, 8)
+TEST_FFT_C2C(N16, 16)
+TEST_FFT_C2C(N32, 32)
+TEST_FFT_C2C(N64, 64)
+TEST_FFT_C2C(N128, 128)
+TEST_FFT_C2C(N256, 256)
+TEST_FFT_C2C(BlockSize, domain::BlockSize)
+TEST_FFT_C2C(WindowSize, domain::WindowSize)
 
 template <size_t Nsamples>
 void run_r2c_test_for_Nsamples()
@@ -453,12 +453,12 @@ void run_r2c_test_for_Nsamples()
         input[i] = i; //dis(gen);
     }
 
-    utils::DFT_real_1d<Nsamples> dft_forward;
+    utils::FFT_real_1d<Nsamples> fft_forward;
 
     // run new method
-    typename utils::DFT_real_1d<Nsamples>::CoeffsT manual_coeffs;
+    typename utils::FFT_real_1d<Nsamples>::CoeffsT manual_coeffs;
     manual_coeffs.fill(0);
-    dft_forward.r2c(input, manual_coeffs);
+    fft_forward.r2c(input, manual_coeffs);
 
     constexpr static size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
     typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
@@ -499,9 +499,9 @@ void run_r2c_test_for_Nsamples()
         types::array_p<Nsamples> reconstructed;
         reconstructed.fill(0);
 
-        utils::DFT_real_1d<Nsamples> dft_inverse(+1);
-        dft_inverse.c2r(manual_coeffs, reconstructed);
-        dft_inverse.rescale(reconstructed);
+        utils::FFT_real_1d<Nsamples> fft_inverse(+1);
+        fft_inverse.c2r(manual_coeffs, reconstructed);
+        fft_inverse.rescale(reconstructed);
 
         ASSERT_EQ(input.size(), reconstructed.size());
 
@@ -518,26 +518,26 @@ void run_r2c_test_for_Nsamples()
     }
 }
 
-#define TEST_DFT_R2C(NAME, N)              \
-TEST(FFTTest, DFT_R2C_##NAME)              \
+#define TEST_FFT_R2C(NAME, N)              \
+TEST(FFTTest, FFT_R2C_##NAME)              \
 {                                          \
     run_r2c_test_for_Nsamples<N>();        \
 }
 
-TEST_DFT_R2C(N1, 1)
-TEST_DFT_R2C(N2, 2)
-TEST_DFT_R2C(N4, 4)
-TEST_DFT_R2C(N8, 8)
-TEST_DFT_R2C(N16, 16)
-TEST_DFT_R2C(N32, 32)
-TEST_DFT_R2C(N64, 64)
-TEST_DFT_R2C(N128, 128)
-TEST_DFT_R2C(N256, 256)
-TEST_DFT_R2C(BlockSize, domain::BlockSize)
-TEST_DFT_R2C(WindowSize, domain::WindowSize)
+TEST_FFT_R2C(N1, 1)
+TEST_FFT_R2C(N2, 2)
+TEST_FFT_R2C(N4, 4)
+TEST_FFT_R2C(N8, 8)
+TEST_FFT_R2C(N16, 16)
+TEST_FFT_R2C(N32, 32)
+TEST_FFT_R2C(N64, 64)
+TEST_FFT_R2C(N128, 128)
+TEST_FFT_R2C(N256, 256)
+TEST_FFT_R2C(BlockSize, domain::BlockSize)
+TEST_FFT_R2C(WindowSize, domain::WindowSize)
 
 
-TEST(FFTTest, DerivativeHelperViaDFT_Test)
+TEST(FFTTest, DerivativeHelperViaFFT_Test)
 {
 
     // chirp
@@ -561,13 +561,13 @@ TEST(FFTTest, DerivativeHelperViaDFT_Test)
     utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
-    // derivative_helper.correlate_via_dft<0>(signal.coeffs);
-    // dft.rescale(butterfly_results);
+    // derivative_helper.correlate_via_fft<0>(signal.coeffs);
+    // fft.rescale(butterfly_results);
 
 
-    auto test_dft_results_against_manual_implementation_whole_window = [&]<size_t derivative_order>()
+    auto test_fft_results_against_manual_implementation_whole_window = [&]<size_t derivative_order>()
     {
-        derivative_helper.correlate_via_dft<derivative_order>(signal.coeffs);
+        derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = 0.0; // -1.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +2.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -586,9 +586,9 @@ TEST(FFTTest, DerivativeHelperViaDFT_Test)
         assert_eq(derivative_helper.correlation_surface[derivative_order], nsquared_results, 1E-8);
     };
 
-    auto test_dft_results_against_manual_implementation_mid_window = [&]<size_t derivative_order>()
+    auto test_fft_results_against_manual_implementation_mid_window = [&]<size_t derivative_order>()
     {
-        derivative_helper.correlate_via_dft<derivative_order>(signal.coeffs);
+        derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = -0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -627,14 +627,14 @@ TEST(FFTTest, DerivativeHelperViaDFT_Test)
 
 
 
-    // dft.rescale(butterfly_results);
+    // fft.rescale(butterfly_results);
 
-    test_dft_results_against_manual_implementation_whole_window.template operator()<0>();
-    test_dft_results_against_manual_implementation_mid_window.template operator()<0>();
-    test_dft_results_against_manual_implementation_whole_window.template operator()<1>();
-    test_dft_results_against_manual_implementation_mid_window.template operator()<1>();
-    // test_dft_results_against_manual_implementation_whole_window.template operator()<2>();
-    // test_dft_results_against_manual_implementation_mid_window.template operator()<2>();
+    test_fft_results_against_manual_implementation_whole_window.template operator()<0>();
+    test_fft_results_against_manual_implementation_mid_window.template operator()<0>();
+    test_fft_results_against_manual_implementation_whole_window.template operator()<1>();
+    test_fft_results_against_manual_implementation_mid_window.template operator()<1>();
+    // test_fft_results_against_manual_implementation_whole_window.template operator()<2>();
+    // test_fft_results_against_manual_implementation_mid_window.template operator()<2>();
 
 }
 
@@ -736,8 +736,8 @@ TEST(ExtremmaFinderTest, ExtremmaFinderTest)
     // { return correlate_and_derive.template operator()<2>(tau); };
 
 
-    derivative_helper.correlate_via_dft<0>(signal.coeffs);
-    derivative_helper.correlate_via_dft<1>(signal.coeffs);
+    derivative_helper.correlate_via_fft<0>(signal.coeffs);
+    derivative_helper.correlate_via_fft<1>(signal.coeffs);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;

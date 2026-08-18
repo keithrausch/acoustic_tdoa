@@ -126,7 +126,7 @@ namespace utils
         typedef types::array_p<Nsamples> RealsT;
 
         types::array_p<Ncoeffs> freqs;
-        std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_dft; // shouldnt go past the first derivative
+        std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_fft; // shouldnt go past the first derivative
         std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_manual_reconstruction; // shouldnt go past the first derivative
         
         // std::array<types::array_cp<Ncoeffs>, Nsamples> precomputed_for_index;
@@ -134,7 +134,7 @@ namespace utils
         types::array_cp<Ncoeffs> corr_product;
         std::array<types::array_p<Nsamples>, NderivativeBuffers> correlation_surface; // shouldnt go past the first derivative
 
-        utils::DFT_real_1d<Nsamples> dft;
+        utils::FFT_real_1d<Nsamples> fft;
 
 
         constexpr static size_t start_fh = Nsamples/2 + Nsamples/4;
@@ -142,7 +142,7 @@ namespace utils
         constexpr static size_t start_sh = 0;
         constexpr static size_t stop_sh = Nsamples/4;
 
-        constexpr static size_t nyquist_index = Ncoeffs-1; // this is actually N/2 of the full DFT
+        constexpr static size_t nyquist_index = Ncoeffs-1; // this is actually N/2 of the full FFT
 
         types::Precision index_to_tau(int i, types::Precision sample_period) const
         {
@@ -154,7 +154,7 @@ namespace utils
 
         void setup(const CoeffsT &coeffs_a, types::Precision sample_period)
         {
-            dft.reset(+1);
+            fft.reset(+1);
 
 
             for (size_t i = 0; i < Ncoeffs; ++i)
@@ -169,7 +169,7 @@ namespace utils
                 }
 
 
-                coeffs_a_for_dft[0][i] = a_conj;
+                coeffs_a_for_fft[0][i] = a_conj;
                 coeffs_a_for_manual_reconstruction[0][i] = a_conj;
 
                 bool is_dc_ny = (i == 0) || (i == nyquist_index);
@@ -178,21 +178,21 @@ namespace utils
                     coeffs_a_for_manual_reconstruction[0][i] *= 2.0;
                 }
 
-                // coeffs_a_for_dft[0][i] *= 2.0;
-                coeffs_a_for_dft[0][i] /= (Nsamples*Nsamples);
+                // coeffs_a_for_fft[0][i] *= 2.0;
+                coeffs_a_for_fft[0][i] /= (Nsamples*Nsamples);
                 coeffs_a_for_manual_reconstruction[0][i] /= (Nsamples*Nsamples);
 
                 freqs[i] = freq;
 
                 for (size_t o = 1; o < NderivativeBuffers; ++o)
                 {
-                    coeffs_a_for_dft[o][i] = coeffs_a_for_dft[o-1][i]*freq * constants::twopij;
+                    coeffs_a_for_fft[o][i] = coeffs_a_for_fft[o-1][i]*freq * constants::twopij;
 
                     if (is_dc_ny && (o % 2 == 1)) // only apply to odd ordered derivatives. DC is fine too.
                     {
                         // just throw the Nyquist term away. its cool. it keeps things real ;)
                         // https://math.mit.edu/~stevenj/fft-deriv.pdf
-                        coeffs_a_for_dft[o][i] *= 0.0;
+                        coeffs_a_for_fft[o][i] *= 0.0;
                     }
 
                     coeffs_a_for_manual_reconstruction[o][i] = coeffs_a_for_manual_reconstruction[o-1][i]*freq * constants::twopi;
@@ -210,15 +210,15 @@ namespace utils
         }
 
         template <size_t derivative_order>
-        void correlate_via_dft(const CoeffsT &B)
+        void correlate_via_fft(const CoeffsT &B)
         {
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
-                corr_product[i] = coeffs_a_for_dft[derivative_order][i] * B[i];
+                corr_product[i] = coeffs_a_for_fft[derivative_order][i] * B[i];
             }
     
 
-            dft.c2r(corr_product, correlation_surface[derivative_order]);
+            fft.c2r(corr_product, correlation_surface[derivative_order]);
         }
 
         template <size_t derivative_order, typename TauT>
@@ -321,7 +321,7 @@ namespace utils
         typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
         typedef types::array_p<Nsamples> RealsT;
 
-        DFT_real_1d<Nsamples> dft;
+        FFT_real_1d<Nsamples> fft;
         RealsT input;
         CoeffsT coeffs;
 
@@ -333,13 +333,13 @@ namespace utils
             input.fill(0.0);
             coeffs.fill(types::cPrecision(0.0, 0.0));
 
-            dft.reset();
+            fft.reset();
         }
 
         void transform()
         {
 
-            dft.r2c(input, coeffs);
+            fft.r2c(input, coeffs);
         }
 
         static FFTHelper construct_simple(types::Precision sample_period_s, const types::SoundFunctionT &chirp_func, const WaveParams &chirp_params)
@@ -690,8 +690,8 @@ namespace utils
 
             signal.transform();
 
-            derivative_helper.template correlate_via_dft<0>(signal.coeffs);
-            derivative_helper.template correlate_via_dft<1>(signal.coeffs);
+            derivative_helper.template correlate_via_fft<0>(signal.coeffs);
+            derivative_helper.template correlate_via_fft<1>(signal.coeffs);
 
             // implement a search
             auto [tau_s_lower_bound, tau_s_upper_bound] = tau_bounds_s();
