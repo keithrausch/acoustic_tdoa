@@ -273,6 +273,92 @@ namespace utils
             return correlate_and_derive_impl(B, tau, typename std::make_index_sequence<derivative_order + 1>());
         }
 
+        template <size_t derivative_order, typename TauT = types::Precision>
+        auto correlate_and_derive_better(const CoeffsT &B, const TauT tau) const
+        {
+            constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
+
+            types::array_p<Norders> sum;
+            sum.fill(0.0);
+            for (size_t i = 0; i < Ncoeffs; ++i)
+            {
+                // a_conj baked into coeffs table
+                auto b = B[i];
+                auto Wn = std::exp(constants::twopij * freqs[i] * tau);
+                auto partial_product = b * Wn;
+
+                for (size_t o = 0; o < Norders; ++o)
+                {
+                    types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
+
+                    if (o % 4 == 0)
+                    {
+                        sum[o] += term_i.real();
+                    }
+                    else if (o % 4 == 1)
+                    {
+                        sum[o] -= term_i.imag();
+                    }
+                    else if (o % 4 == 2)
+                    {
+                        sum[o] -= term_i.real();
+                    }
+                    else /* if (o % 4 == 3) */
+                    {
+                        sum[o] += term_i.imag();
+                    }
+                }
+            }
+
+            // sum *= duration_s;
+            return sum;
+        }
+
+        template <size_t derivative_order, typename TauT = types::Precision>
+        auto correlate_and_derive_better2(const CoeffsT &B, const TauT tau) const
+        {
+            constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
+
+            types::cPrecision Wn(1,0);
+            types::cPrecision W1 = std::exp(constants::twopij * freqs[1] * tau);
+
+            types::array_p<Norders> sum;
+            sum.fill(0.0);
+            for (size_t i = 0; i < Ncoeffs; ++i)
+            {
+                // a_conj baked into coeffs table
+                auto b = B[i];
+                auto partial_product = b * Wn;
+
+                for (size_t o = 0; o < Norders; ++o)
+                {
+                    types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
+
+                    if (o % 4 == 0)
+                    {
+                        sum[o] += term_i.real();
+                    }
+                    else if (o % 4 == 1)
+                    {
+                        sum[o] -= term_i.imag();
+                    }
+                    else if (o % 4 == 2)
+                    {
+                        sum[o] -= term_i.real();
+                    }
+                    else /* if (o % 4 == 3) */
+                    {
+                        sum[o] += term_i.imag();
+                    }
+                }
+
+                Wn *= W1;
+            }
+
+            // sum *= duration_s;
+            return sum;
+        }
+
         // template <typename TauT>
         // auto eval_and_print(const CoeffsT &B, types::Precision duration_s, const TauT tau)
         // {
