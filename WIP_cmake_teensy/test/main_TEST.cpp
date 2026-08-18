@@ -383,202 +383,158 @@ TEST(CalibrationTest, CalibrationTest)
 
     States states_residual = states_true - states_est;
     std::cout << "residual: (norm=" << states_residual.norm() << "), " << states_residual.transpose() << "\n";
-
-
 }
 
-TEST(FFTTest, DFT_C2C_Test)
+template <size_t Nsamples>
+void run_c2c_test_for_Nsamples()
 {
-    constexpr size_t Nsamples = domain::WindowSize;
-
-    auto run_test_for_Nsamples = []<size_t Nsamples>()
+    // generate data
+    std::random_device rd; 
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<types::Precision> dis(-1.0, +1.0);
+    types::array_cp<Nsamples> input;
+    for (auto & element : input)
     {
-        // generate data
-        std::random_device rd; 
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<types::Precision> dis(-1.0, +1.0);
-        types::array_cp<Nsamples> input;
-        for (auto & element : input)
-        {
-            element = types::cPrecision(dis(gen), dis(gen));
-        }
+        element = types::cPrecision(dis(gen), dis(gen));
+    }
 
-        utils::DFT_c2c_1d<Nsamples> forward;
-        forward.reset();
+    utils::DFT_c2c_1d<Nsamples> forward;
+    forward.reset();
 
-        // run new method
-        typename utils::DFT_c2c_1d<Nsamples>::OutputT coeffs;
-        coeffs.fill(0);
-        forward.run(input.data(), coeffs);
+    // run new method
+    typename utils::DFT_c2c_1d<Nsamples>::OutputT coeffs;
+    coeffs.fill(0);
+    forward.run(input.data(), coeffs);
 
 
-        utils::DFT_c2c_1d<Nsamples> inverse;
-        inverse.reset(+1.0);
+    utils::DFT_c2c_1d<Nsamples> inverse;
+    inverse.reset(+1.0);
 
-        // run new method
-        typename utils::DFT_c2c_1d<Nsamples>::OutputT reconstruct;
-        reconstruct.fill(0);
-        inverse.run(coeffs.data(), reconstruct);
-        inverse.rescale(reconstruct);
+    // run new method
+    typename utils::DFT_c2c_1d<Nsamples>::OutputT reconstruct;
+    reconstruct.fill(0);
+    inverse.run(coeffs.data(), reconstruct);
+    inverse.rescale(reconstruct);
 
-        ASSERT_EQ(coeffs.size(), input.size());
-        ASSERT_EQ(coeffs.size(), reconstruct.size());
+    ASSERT_EQ(coeffs.size(), input.size());
+    ASSERT_EQ(coeffs.size(), reconstruct.size());
 
-        assert_eq(input, reconstruct);
-    };
-
-    // run_test_for_Nsamples.template operator()<1>();
-    run_test_for_Nsamples.template operator()<2>();
-    run_test_for_Nsamples.template operator()<4>();
-    run_test_for_Nsamples.template operator()<8>();
-    run_test_for_Nsamples.template operator()<16>();
-    run_test_for_Nsamples.template operator()<32>();
-    run_test_for_Nsamples.template operator()<64>();
-    run_test_for_Nsamples.template operator()<128>();
-    run_test_for_Nsamples.template operator()<256>();
-    run_test_for_Nsamples.template operator()<domain::BlockSize>();
-    run_test_for_Nsamples.template operator()<domain::WindowSize>();
+    assert_eq(input, reconstruct);
 }
 
-TEST(FFTTest, DFT_R2C_Test)
+#define TEST_DFT_C2C(NAME, N)              \
+TEST(FFTTest, DFT_C2C_##NAME)              \
+{                                          \
+    run_c2c_test_for_Nsamples<N>();        \
+}
+
+TEST_DFT_C2C(N1, 1)
+TEST_DFT_C2C(N2, 2)
+TEST_DFT_C2C(N4, 4)
+TEST_DFT_C2C(N8, 8)
+TEST_DFT_C2C(N16, 16)
+TEST_DFT_C2C(N32, 32)
+TEST_DFT_C2C(N64, 64)
+TEST_DFT_C2C(N128, 128)
+TEST_DFT_C2C(N256, 256)
+TEST_DFT_C2C(BlockSize, domain::BlockSize)
+TEST_DFT_C2C(WindowSize, domain::WindowSize)
+
+template <size_t Nsamples>
+void run_r2c_test_for_Nsamples()
 {
-
-    // // sandbox
-    // {
-    //     constexpr size_t N = 8;
-    //     types::array_p<N> input{0, 1, 2, 3, 4, 5, 6, 7};
-    //     utils::DFT_real_1d<N>::CoeffsT manual_coeffs;
-    //     manual_coeffs.fill(0);
-    //     types::array_p<N> reconstructed;
-    //     reconstructed.fill(0);
-
-    //     {
-    //         utils::DFT_real_1d<N> dft(-1);
-    //         dft.r2c(input, manual_coeffs);
-    //     }
-
-    //     {
-    //         utils::DFT_real_1d<N> dft(+1);
-    //         dft.c2r(manual_coeffs, reconstructed);
-    //         dft.rescale(reconstructed);
-    //     }
-    // }
-
-    // // sandbox
-    // {
-    //     constexpr size_t N = 16;
-    //     types::array_p<N> input{1, 2, 4, 6, 7, 9, 4, 6,    1, 2, 3, 4, 5, 6, 7, 8};
-    //     utils::DFT_real_1d<N>::CoeffsT manual_coeffs;
-    //     manual_coeffs.fill(0);
-    //     types::array_p<N> reconstructed;
-    //     reconstructed.fill(0);
-
-    //     {
-    //         utils::DFT_real_1d<N> dft(-1);
-    //         dft.r2c(input, manual_coeffs);
-    //         dft.rescale(reconstructed);
-    //     }
-
-    //     {
-    //         utils::DFT_real_1d<N> dft(+1);
-    //         dft.c2r(manual_coeffs, reconstructed);
-    //         dft.rescale(reconstructed);
-    //     }
-    // }
-
-    constexpr size_t Nsamples = domain::WindowSize;
-
-    auto run_test_for_Nsamples = []<size_t Nsamples>()
+    // generate data
+    std::random_device rd; 
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<types::Precision> dis(-1.0, +1.0);
+    types::array_p<Nsamples> input;
+    for (size_t i = 0; i < input.size(); ++i)
     {
-        // generate data
-        std::random_device rd; 
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<types::Precision> dis(-1.0, +1.0);
-        types::array_p<Nsamples> input;
-        for (size_t i = 0; i < input.size(); ++i)
-        {
-            input[i] = i; //dis(gen);
-        }
+        input[i] = i; //dis(gen);
+    }
 
-        utils::DFT_real_1d<Nsamples> dft_forward;
+    utils::DFT_real_1d<Nsamples> dft_forward;
 
-        // run new method
-        typename utils::DFT_real_1d<Nsamples>::CoeffsT manual_coeffs;
-        manual_coeffs.fill(0);
-        dft_forward.r2c(input, manual_coeffs);
+    // run new method
+    typename utils::DFT_real_1d<Nsamples>::CoeffsT manual_coeffs;
+    manual_coeffs.fill(0);
+    dft_forward.r2c(input, manual_coeffs);
 
-        constexpr static size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
-        typedef types::array_p<Nsamples> RealsT;
-        
-        types::array_cp<Ncoeffs> fftw_coeffs; // fftw needs 1 extra element when executing
-        if constexpr(std::is_same_v<types::Precision, double>)
-        {
-            fftw_plan plan{};
-            plan = fftw_plan_dft_r2c_1d(Nsamples, input.data(), reinterpret_cast<fftw_complex *>(fftw_coeffs.data()), FFTW_ESTIMATE);
-            fftw_execute(plan);
-            fftw_destroy_plan(plan);
-        }
-        else if constexpr(std::is_same_v<types::Precision, float>)
-        {
-            fftwf_plan plan{};
-            plan = fftwf_plan_dft_r2c_1d(Nsamples, input.data(), reinterpret_cast<fftwf_complex *>(fftw_coeffs.data()), FFTW_ESTIMATE);
-            fftwf_execute(plan);
-            fftwf_destroy_plan(plan);
-        }
+    constexpr static size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
+    typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
+    typedef types::array_p<Nsamples> RealsT;
+    
+    types::array_cp<Ncoeffs> fftw_coeffs; // fftw needs 1 extra element when executing
+    if constexpr(std::is_same_v<types::Precision, double>)
+    {
+        fftw_plan plan{};
+        plan = fftw_plan_dft_r2c_1d(Nsamples, input.data(), reinterpret_cast<fftw_complex *>(fftw_coeffs.data()), FFTW_ESTIMATE);
+        fftw_execute(plan);
+        fftw_destroy_plan(plan);
+    }
+    else if constexpr(std::is_same_v<types::Precision, float>)
+    {
+        fftwf_plan plan{};
+        plan = fftwf_plan_dft_r2c_1d(Nsamples, input.data(), reinterpret_cast<fftwf_complex *>(fftw_coeffs.data()), FFTW_ESTIMATE);
+        fftwf_execute(plan);
+        fftwf_destroy_plan(plan);
+    }
 
-        ASSERT_EQ(fftw_coeffs.size(), manual_coeffs.size());
+    ASSERT_EQ(fftw_coeffs.size(), manual_coeffs.size());
+
+    types::Precision total_error = 0;
+    for (size_t i = 0; i < Ncoeffs; ++i)
+    {
+        // std::cout << chirp.coeffs[i] << ", " << coeffs[i] << "\n";
+        auto this_error = std::abs(fftw_coeffs[i] - manual_coeffs[i]);
+        total_error += this_error * this_error;
+        // std::cout << fftw_coeffs[i] << ", " << manual_coeffs[i] << "\n";
+    }
+    total_error = std::sqrt(total_error);
+    ASSERT_LT(total_error, 1E-10);
+
+    // test reconstruction
+    {
+
+        types::array_p<Nsamples> reconstructed;
+        reconstructed.fill(0);
+
+        utils::DFT_real_1d<Nsamples> dft_inverse(+1);
+        dft_inverse.c2r(manual_coeffs, reconstructed);
+        dft_inverse.rescale(reconstructed);
+
+        ASSERT_EQ(input.size(), reconstructed.size());
 
         types::Precision total_error = 0;
         for (size_t i = 0; i < Ncoeffs; ++i)
         {
             // std::cout << chirp.coeffs[i] << ", " << coeffs[i] << "\n";
-            auto this_error = std::abs(fftw_coeffs[i] - manual_coeffs[i]);
+            auto this_error = std::abs(input[i] - reconstructed[i]);
             total_error += this_error * this_error;
             // std::cout << fftw_coeffs[i] << ", " << manual_coeffs[i] << "\n";
         }
         total_error = std::sqrt(total_error);
         ASSERT_LT(total_error, 1E-10);
-
-        // test reconstruction
-        {
-
-            types::array_p<Nsamples> reconstructed;
-            reconstructed.fill(0);
-
-            utils::DFT_real_1d<Nsamples> dft_inverse(+1);
-            dft_inverse.c2r(manual_coeffs, reconstructed);
-            dft_inverse.rescale(reconstructed);
-
-            ASSERT_EQ(input.size(), reconstructed.size());
-
-            types::Precision total_error = 0;
-            for (size_t i = 0; i < Ncoeffs; ++i)
-            {
-                // std::cout << chirp.coeffs[i] << ", " << coeffs[i] << "\n";
-                auto this_error = std::abs(input[i] - reconstructed[i]);
-                total_error += this_error * this_error;
-                // std::cout << fftw_coeffs[i] << ", " << manual_coeffs[i] << "\n";
-            }
-            total_error = std::sqrt(total_error);
-            ASSERT_LT(total_error, 1E-10);
-        }
-    };
-
-    // run_test_for_Nsamples.template operator()<1>();
-    // run_test_for_Nsamples.template operator()<2>();
-    run_test_for_Nsamples.template operator()<4>();
-    run_test_for_Nsamples.template operator()<8>();
-    run_test_for_Nsamples.template operator()<16>();
-    run_test_for_Nsamples.template operator()<32>();
-    run_test_for_Nsamples.template operator()<64>();
-    run_test_for_Nsamples.template operator()<128>();
-    run_test_for_Nsamples.template operator()<256>();
-    run_test_for_Nsamples.template operator()<domain::BlockSize>();
-    run_test_for_Nsamples.template operator()<domain::WindowSize>();
+    }
 }
 
+#define TEST_DFT_R2C(NAME, N)              \
+TEST(FFTTest, DFT_R2C_##NAME)              \
+{                                          \
+    run_r2c_test_for_Nsamples<N>();        \
+}
 
+TEST_DFT_R2C(N1, 1)
+TEST_DFT_R2C(N2, 2)
+TEST_DFT_R2C(N4, 4)
+TEST_DFT_R2C(N8, 8)
+TEST_DFT_R2C(N16, 16)
+TEST_DFT_R2C(N32, 32)
+TEST_DFT_R2C(N64, 64)
+TEST_DFT_R2C(N128, 128)
+TEST_DFT_R2C(N256, 256)
+TEST_DFT_R2C(BlockSize, domain::BlockSize)
+TEST_DFT_R2C(WindowSize, domain::WindowSize)
 
 
 TEST(FFTTest, DerivativeHelperViaDFT_Test)
@@ -652,11 +608,15 @@ TEST(FFTTest, DerivativeHelperViaDFT_Test)
         // tau)
         types::array_p<domain::BlockSize> fft_results_reordered;
         size_t i = 0;
+
+        // this is the "negative tau" side of the results. all the way from most negative to 0
         for (size_t j = 0; j < domain::BlockSize/2; ++j)
         {
             auto offset = domain::BlockSize + domain::BlockSize/2;
             fft_results_reordered[i++] = derivative_helper.correlation_surface[derivative_order][offset+i];
         }
+
+        // this is the "positive tau" side of the results. all the way from 0 to most positive
         for (size_t j = 0 ; j < domain::BlockSize/2; ++j)
         {
             fft_results_reordered[i++] = derivative_helper.correlation_surface[derivative_order][j];
