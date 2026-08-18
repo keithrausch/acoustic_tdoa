@@ -29,5 +29,5 @@ target_link_libraries(perf_tests PRIVATE
     Eigen3::Eigen
     GTest::gtest_main
 )
-target_compile_features(perf_tests PRIVATE cxx_std_23)
 gtest_discover_tests(perf_tests DISCOVERY_TIMEOUT 30)
+target_compile_features(perf_tests PRIVATE cxx_std_23)

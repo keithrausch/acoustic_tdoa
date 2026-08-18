@@ -567,14 +567,14 @@ void test_derivative_helper_on_derivative_order_over_full_window()
     signal.transform();
 
 
-    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
+    utils::DerivativeHelper<domain::WindowSize, derivative_order> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     // derivative_helper.correlate_via_fft<0>(signal.coeffs);
     // fft.rescale(butterfly_results);
 
     {
-        derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
+        derivative_helper.template correlate_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = 0.0; // -1.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +2.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -586,7 +586,7 @@ void test_derivative_helper_on_derivative_order_over_full_window()
         auto tau_s = tau_s_lower_bound;
         for (size_t i = 0; i < nsquared_results.size(); ++i)
         {
-            nsquared_results[i] = derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau_s)[derivative_order];
+            nsquared_results[i] = derivative_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau_s)[derivative_order];
             tau_s += tau_s_step;
         }
 
@@ -622,14 +622,14 @@ void test_derivative_helper_on_derivative_order_over_mid_window()
     signal.transform();
 
 
-    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
+    utils::DerivativeHelper<domain::WindowSize, derivative_order> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     // derivative_helper.correlate_via_fft<0>(signal.coeffs);
     // fft.rescale(butterfly_results);
 
     {
-        derivative_helper.correlate_via_fft<derivative_order>(signal.coeffs);
+        derivative_helper.template correlate_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = -0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -639,7 +639,7 @@ void test_derivative_helper_on_derivative_order_over_mid_window()
         auto tau_s = tau_s_lower_bound;
         for (size_t i = 0; i < nsquared_results.size(); ++i)
         {
-            nsquared_results[i] = derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau_s)[derivative_order];
+            nsquared_results[i] = derivative_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau_s)[derivative_order];
             tau_s += tau_s_step;
         }
 
@@ -693,6 +693,23 @@ TEST(FFTTest, DerivativeHelperViaFFT_order2_full_window_Test)
 TEST(FFTTest, DerivativeHelperViaFFT_order2_mid_window_Test)
 {
     test_derivative_helper_on_derivative_order_over_mid_window<2>();
+}
+// wild overkill, but good to stress test the code:
+TEST(FFTTest, DerivativeHelperViaFFT_order3_full_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_full_window<3>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order3_mid_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_mid_window<3>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order4_full_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_full_window<4>();
+}
+TEST(FFTTest, DerivativeHelperViaFFT_order4_mid_window_Test)
+{
+    test_derivative_helper_on_derivative_order_over_mid_window<4>();
 }
 
 

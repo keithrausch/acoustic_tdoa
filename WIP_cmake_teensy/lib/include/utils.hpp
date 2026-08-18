@@ -128,8 +128,6 @@ namespace utils
         types::array_p<Ncoeffs> freqs;
         std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_fft; // shouldnt go past the first derivative
         std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_manual_reconstruction; // shouldnt go past the first derivative
-        
-        // std::array<types::array_cp<Ncoeffs>, Nsamples> precomputed_for_index;
 
         types::array_cp<Ncoeffs> corr_product;
         std::array<types::array_p<Nsamples>, NderivativeBuffers> correlation_surface; // shouldnt go past the first derivative
@@ -203,18 +201,10 @@ namespace utils
                     for (size_t o = 1; o < NderivativeBuffers; o+=2)
                     {
                         coeffs_a_for_fft[o][i] *= 0.0;
+                        coeffs_a_for_manual_reconstruction[o][i] *= 0.0;
                     }
                 }
             }
-
-            // for (size_t i = 0; i < Nsamples; ++i)
-            // {
-            //     auto tau = index_to_tau(i, 1.0/sample_period);
-            //     for (size_t k = 0; k < Ncoeffs; ++k)
-            //     {
-            //         precomputed_for_index[i][k] = coeffs_a_for_manual_reconstruction[0][k] * std::exp(constants::twopij * freqs[k] * tau);
-            //     }
-            // }
         }
 
         template <size_t derivative_order>
@@ -232,28 +222,29 @@ namespace utils
         template <size_t derivative_order, typename TauT>
         auto correlate_impl(const CoeffsT &B, /*types::Precision duration_s,*/ const TauT tau) const
         {
-            // normally we would sum all the terms, but the Nyquist coefficient for odd derivatives actually needs to be 0
-            constexpr size_t Ncoeffs_to_sum = Ncoeffs - (derivative_order % 2 == 1);
-
             types::Precision sum(0.0);
-            for (size_t i = 0; i < Ncoeffs_to_sum; ++i)
+            for (size_t i = 0; i < Ncoeffs; ++i)
             {
-                // auto a_conj = coeffs_a_for_manual_reconstruction[i];
+                // a_conj baked into coeffs table
                 auto b = B[i];
 
-                types::cPrecision term_i = /*a_conj * */ coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(constants::twopij * freqs[i] * tau);
+                types::cPrecision term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(constants::twopij * freqs[i] * tau);
 
-                if constexpr(0 == derivative_order)
+                if constexpr(derivative_order % 4 == 0)
                 {
-                    sum += term_i.real();// * freqs_to_power[derivative_order][i];
+                    sum += term_i.real();
                 }
-                else if constexpr(1 == derivative_order)
+                else if constexpr(derivative_order % 4 == 1)
                 {
-                    sum -= term_i.imag();// * freqs_to_power[derivative_order][i];
+                    sum -= term_i.imag();
                 }
-                else if constexpr(2 == derivative_order)
+                else if constexpr(derivative_order % 4 == 2)
                 {
-                    sum -= term_i.real();// * freqs_to_power[derivative_order][i];
+                    sum -= term_i.real();
+                }
+                else if constexpr(derivative_order % 4 == 3)
+                {
+                    sum += term_i.imag();
                 }
             }
 
@@ -264,19 +255,6 @@ namespace utils
         template <typename IndexT>
         auto correlate_at(const CoeffsT &B, IndexT index_or_tau) const
         {
-            // types::Precision sum(0.0);
-            // for (size_t i = 0; i < Ncoeffs; ++i)
-            // {
-            //     auto b = B[i];
-
-            //     types::cPrecision term_i = b * precomputed_for_index[index_or_tau][i];
-
-            //     sum += term_i.real();
-            // }
-
-            // // sum *= duration_s;
-            // return sum;
-
             return correlate_impl<0>(B, index_or_tau);
         }
 

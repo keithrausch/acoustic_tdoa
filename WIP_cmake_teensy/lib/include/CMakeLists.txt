@@ -36,3 +36,6 @@ target_include_directories(${LIB_NAME} PUBLIC "${LIB_ROOT}")
 
 # print included dirs
 # list_include_dirs(${LIB_NAME})
+
+
+target_compile_features(${LIB_NAME} PRIVATE cxx_std_23)
