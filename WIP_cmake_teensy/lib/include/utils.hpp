@@ -152,14 +152,14 @@ namespace utils
 
         }
 
-        void setup(const CoeffsT &coeffs_a, types::Precision sample_period)
+        void setup(const CoeffsT &coeffs_a, types::Precision sample_freq_hz)
         {
             fft.reset(+1);
 
 
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
-                types::Precision freq = i * sample_period / static_cast<types::Precision>(Nsamples);
+                types::Precision freq = i * sample_freq_hz / static_cast<types::Precision>(Nsamples);
 
                 auto a_conj = std::conj(coeffs_a[i]);
 
