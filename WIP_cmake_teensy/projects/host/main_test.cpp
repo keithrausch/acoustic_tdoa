@@ -564,11 +564,8 @@ void test_derivative_helper_on_derivative_order_over_full_window()
     utils::DerivativeHelper<domain::WindowSize, derivative_order> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
-    // derivative_helper.correlate_via_fft<0>(signal.coeffs);
-    // fft.rescale(butterfly_results);
-
     {
-        derivative_helper.template correlate_via_fft<derivative_order>(signal.coeffs);
+        derivative_helper.template set_correlation_surface_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = 0.0; // -1.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +2.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -590,7 +587,7 @@ void test_derivative_helper_on_derivative_order_over_full_window()
             resid[i] = std::abs(derivative_helper.correlation_surface[derivative_order][i] - nsquared_results[i]);
         }
 
-        utils::print("resid", resid);
+        // utils::print("resid", resid);
         assert_eq(derivative_helper.correlation_surface[derivative_order], nsquared_results);
     }
 }
@@ -619,11 +616,8 @@ void test_derivative_helper_on_derivative_order_over_mid_window()
     utils::DerivativeHelper<domain::WindowSize, derivative_order> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
-    // derivative_helper.correlate_via_fft<0>(signal.coeffs);
-    // fft.rescale(butterfly_results);
-
     {
-        derivative_helper.template correlate_via_fft<derivative_order>(signal.coeffs);
+        derivative_helper.template set_correlation_surface_via_fft<derivative_order>(signal.coeffs);
 
         types::Precision tau_s_lower_bound = -0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
         types::Precision tau_s_upper_bound = +0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
@@ -708,27 +702,42 @@ TEST(FFTTest, DerivativeHelperViaFFT_order4_mid_window_Test)
 
 
 
-// TEST(ReconstructionTest, ReconstructionTest)
-// {
-//     // chirp
-//     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
-//     auto chirp_params = utils::WaveParams{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
-//     auto chirp = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
+TEST(ReconstructionTest, ReconstructionTestManual)
+{
+    // chirp
+    auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
+    auto chirp_params = utils::WaveParams{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
-//     double largest_error = std::numeric_limits<double>::lowest();
-//     for (size_t k = 0; k < domain::WindowSize; ++k)
-//     {
-//         auto reconstructed = utils::reconstruct_at_index(chirp.coeffs, k);
-//         double this_error = std::abs(reconstructed - chirp.input[k]);
-//         largest_error = std::max(largest_error, this_error);
-//     }
-//     // std::cout << "largest reconstruction error: " << (largest_error) << "\n";
+    types::array_p<domain::WindowSize> reconstructed;
+    for (size_t k = 0; k < reconstructed.size(); ++k)
+    {
+        reconstructed[k] = chirp.manually_reconstruct_at_index(k);
+        reconstructed[k] /= domain::WindowSize; // our transforms are unnormalized
+    }
 
-//     ASSERT_LT(largest_error, 1E-4);
-// }
+    assert_eq(reconstructed, chirp.input);
+}
+
+TEST(ReconstructionTest, ReconstructionTestFFT)
+{
+    // chirp
+    auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
+    auto chirp_params = utils::WaveParams{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
+
+    types::array_p<domain::WindowSize> reconstructed;
+    utils::FFT_real_1d<domain::WindowSize> fft_real_1d{};
+
+    fft_real_1d.reset(+1);
+    fft_real_1d.c2r(chirp.coeffs, reconstructed);
+    fft_real_1d.rescale(reconstructed);
+
+    assert_eq(reconstructed, chirp.input);
+}
 
 
-TEST(DerivativeHelperTest, DerivativeHelperTest)
+TEST(PeakFinderTest, PeakFinderTest)
 {
     // chirp
     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
@@ -744,33 +753,63 @@ TEST(DerivativeHelperTest, DerivativeHelperTest)
     utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
-    auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
+
+    auto eval_and_print = [&derivative_helper, &signal]<typename TauT>(const TauT tau)
     {
+        const auto &B = signal.coeffs;
+        types::Precision duration_s = domain::window_period_s;
+        constexpr size_t Nsamples = domain::WindowSize;
+
+        auto [f, f_d1, f_d2] = derivative_helper.correlate_and_derive<2>(B, tau);
+
+        auto sample_period_s = duration_s / Nsamples;
+
+        {
+            std::stringstream ss;
+            ss << std::fixed << std::showpoint << std::showpos;
+            ss << std::setprecision(6);
+            ss << "tau_index:" << tau / sample_period_s;
+            ss << std::setprecision(8);
+            ss << " (" << tau << "s)";
+            std::cout << ss.str();
+        }
+
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::showpos;
+            ss << std::setprecision(8);
+            ss << ". f: " << f << ", f_d1: " << f_d1 << ", f_d2:" << f_d2 << "\n";
+            std::cout << ss.str();
+        }
+    };
+
+    auto fd0_fd1_fd2 = [&derivative_helper, &signal](auto tau)
+    { 
+        constexpr size_t derivative_order = 2;
         return derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau);
     };
 
-    // auto fd0_fd1 = [&](auto tau)
-    // { return correlate_and_derive.template operator()<1>(tau); };
-    auto fd0_fd1_fd2 = [&](auto tau)
-    { return correlate_and_derive.template operator()<2>(tau); };
-
-    // auto eval_and_print = [&](auto tau)
-    // {
-    //     derivative_helper.eval_and_print(chirp.coeffs, signal.coeffs, domain::window_period_s, tau);
-    // };
+    static constexpr bool verbose = true;
 
     auto guessed_tau_s = 0 + 0.5 * domain::sample_period_s;
-    std::cout << "starting: ";
-    // eval_and_print(guessed_tau_s);
-    std::cout << "solution: ";
     auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
-    // eval_and_print(optimal_tau_s);
-    std::cout << "tau_true: ";
-    // eval_and_print(tau_true_s);
+
+    if constexpr (verbose)
+    {
+        std::cout << "starting: ";
+        eval_and_print(guessed_tau_s);
+        std::cout << "solution: ";
+        eval_and_print(optimal_tau_s);
+        std::cout << "tau_true: ";
+        eval_and_print(tau_true_s);
+    }
+
+    auto [f, f_d1, f_d2] = fd0_fd1_fd2(optimal_tau_s);
+    ASSERT_LT(std::fabs(f_d1), 1E-10) << "derivative should be super close to 0";
 
     auto residual_s = (tau_true_s - optimal_tau_s);
     auto residual_mm = constants::speed_of_sound_mmps * residual_s;
-    std::cout << "residual: " << residual_s << "s, " << residual_mm << "mm\n";
+    std::cout << "residual: " << residual_s/domain::sample_period_s << "(fractions of a sample), " << residual_mm << "mm\n";
 
     ASSERT_LT(std::fabs(residual_s), residual_s_tolerance);
     ASSERT_LT(std::fabs(residual_mm), residual_mm_tolerance_tight);
@@ -793,21 +832,13 @@ TEST(ExtremmaFinderTest, ExtremmaFinderTest)
     utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
     derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
-    auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
+    auto correlate_and_derive = [&derivative_helper, &signal]<size_t derivative_order>(auto tau)
     {
         return derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau);
     };
 
-    // auto fd0 = [&](auto tau)
-    // { return correlate_and_derive.template operator()<0>(tau)[0]; };
-    // auto fd1 = [&](auto tau)
-    // { return correlate_and_derive.template operator()<1>(tau)[1]; };
-    // auto fd0_fd1_fd2 = [&](auto tau)
-    // { return correlate_and_derive.template operator()<2>(tau); };
-
-
-    derivative_helper.correlate_via_fft<0>(signal.coeffs);
-    derivative_helper.correlate_via_fft<1>(signal.coeffs);
+    derivative_helper.set_correlation_surface_via_fft<0>(signal.coeffs);
+    derivative_helper.set_correlation_surface_via_fft<1>(signal.coeffs);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;

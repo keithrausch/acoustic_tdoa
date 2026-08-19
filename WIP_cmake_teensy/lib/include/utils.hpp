@@ -96,12 +96,11 @@ namespace utils
         }
     }
 
+    /// computes 0^0 == 1
     template <size_t p, typename T>
-    // concept so p is >= 0
     constexpr auto pow(T val)
     {
         // yes im aware this is bugged for 0^0 but i need that to be 1 anyways
-        // typedef std::remove_cvref<T>::type U;
         typedef T U;
         U result{1};
         for (size_t i = 0; i < p; ++i)
@@ -109,19 +108,6 @@ namespace utils
             result *= val;
         }
         return result;
-    }
-
-    template <size_t Ncoeffs>
-    static types::Precision reconstruct_at_index(const types::array_cp<Ncoeffs> &coeffs, size_t k)
-    {
-        constexpr types::Precision Nsamples = Ncoeffs_to_Nsamples(Ncoeffs);
-
-        types::Precision sum(0.0);
-        for (size_t m = 0; m < coeffs.size()-1; ++m)
-        {
-            sum += (coeffs[m] * std::exp(constants::twopij * static_cast<types::Precision>(k * m) / Nsamples)).real();
-        }
-        return sum;
     }
 
     template <size_t Nsamples, size_t max_derivative_order>
@@ -215,7 +201,7 @@ namespace utils
         }
 
         template <size_t derivative_order>
-        void correlate_via_fft(const CoeffsT &B)
+        void set_correlation_surface_via_fft(const CoeffsT &B)
         {
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
@@ -365,32 +351,6 @@ namespace utils
             // sum *= duration_s;
             return sum;
         }
-
-        // template <typename TauT>
-        // auto eval_and_print(const CoeffsT &B, types::Precision duration_s, const TauT tau)
-        // {
-        //     auto [f, f_d1, f_d2] = correlate_and_derive<2, true>(B, duration_s, tau);
-
-        //     auto sample_period_s = duration_s / Nsamples;
-
-        //     {
-        //         std::stringstream ss;
-        //         ss << std::fixed << std::showpoint << std::showpos;
-        //         ss << std::setprecision(6);
-        //         ss << "tau_index:" << tau / sample_period_s;
-        //         ss << std::setprecision(8);
-        //         ss << " (" << tau << "s)";
-        //         std::cout << ss.str();
-        //     }
-
-        //     {
-        //         std::stringstream ss;
-        //         ss << std::scientific << std::showpos;
-        //         ss << std::setprecision(8);
-        //         ss << ". f: " << f << ", f_d1: " << f_d1 << ", f_d2:" << f_d2 << "\n";
-        //         std::cout << ss.str();
-        //     }
-        // }
     };
 
     template <size_t Nsamples>
@@ -419,6 +379,32 @@ namespace utils
         {
 
             fft.r2c(input, coeffs);
+        }
+
+        // result is unscaled
+        // can accept fractional index
+        // inefficient if computing multiple times, just use c2r for that
+        template <typename T>
+        types::Precision manually_reconstruct_at_index(T k)
+        {
+            types::cPrecision Wn(1,0);
+            types::Precision freq_1 = static_cast<types::Precision>(1) / Nsamples;
+            types::cPrecision W1 = std::exp(constants::twopij * (freq_1 * k));
+
+            types::Precision sum{};
+            for (size_t i = 0; i < Ncoeffs; ++i)
+            {
+                types::cPrecision term_i = coeffs[i] * Wn;
+                if ((i > 0) && (i < Ncoeffs-1)) // can pull this check out front if -O3 isnt doing that already
+                {
+                    term_i *= 2;
+                }
+                sum += term_i.real();
+                Wn *= W1;
+            }
+
+            // sum *= duration_s;
+            return sum;
         }
 
         static FFTHelper construct_simple(types::Precision sample_period_s, const types::SoundFunctionT &chirp_func, const WaveParams &chirp_params)
@@ -539,7 +525,7 @@ namespace utils
                 return (v > 0.0) - (v < 0.0);
             };
 
-            auto fd0_fd1_fd2 = [&](auto tau)
+            auto fd0_fd1_fd2 = [&derivative_helper, &B](auto tau)
             { return derivative_helper.template correlate_and_derive<2>(B, tau); };
 
             auto check_index = [&](size_t i)
@@ -769,8 +755,8 @@ namespace utils
 
             signal.transform();
 
-            derivative_helper.template correlate_via_fft<0>(signal.coeffs);
-            derivative_helper.template correlate_via_fft<1>(signal.coeffs);
+            derivative_helper.template set_correlation_surface_via_fft<0>(signal.coeffs);
+            derivative_helper.template set_correlation_surface_via_fft<1>(signal.coeffs);
 
             // implement a search
             auto [tau_s_lower_bound, tau_s_upper_bound] = tau_bounds_s();
