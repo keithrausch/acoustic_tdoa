@@ -127,24 +127,21 @@ namespace utils
 
         utils::FFT_real_1d<Nsamples> fft;
 
-
-        constexpr static size_t start_fh = Nsamples/2 + Nsamples/4;
-        constexpr static size_t stop_fh = Nsamples;
-        constexpr static size_t start_sh = 0;
-        constexpr static size_t stop_sh = Nsamples/4;
-
         constexpr static size_t nyquist_index = Ncoeffs-1; // this is actually N/2 of the full FFT
 
-        types::Precision index_to_tau(int i, types::Precision sample_period) const
+        // valid for all possible indices [0, Nsamples].
+        // output units are integers, not time
+        static constexpr int surface_index_to_tau_signed_index(int i)
         {
-            auto tau_s_step = sample_period;
-            auto tau_s = (i >= static_cast<int>(Nsamples/2)) ? tau_s_step*(i-static_cast<int>(Nsamples)) : i*tau_s_step;
-            return tau_s;
-
+            int tau = (i >= Nsamples/2) ? (i-Nsamples) : i;
+            return tau;
         }
 
         void setup(const CoeffsT &coeffs_a, types::Precision sample_freq_hz)
         {
+            static_assert(nyquist_index == Nsamples/2, "the coeffs of an r2c transform put nyquist at the end and are N/2+1 in size. a full c2c transfrom would have N coeffs (with nyquist still at N/2)");
+            static_assert(Ncoeffs != Nsamples, "assuming we are using coefficients from an r2c transform");
+
             fft.reset(+1);
 
 
@@ -223,6 +220,9 @@ namespace utils
 
                 types::cPrecision term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(constants::twopij * freqs[i] * tau);
 
+                // we can get away with pulling only the real/imag parts instead of the total 
+                // complex magnitude because these calculations should produce purely real results. 
+                // the other component (the one not taken) SHOULD be zero 
                 if constexpr(derivative_order % 4 == 0)
                 {
                     sum += term_i.real();
@@ -284,6 +284,10 @@ namespace utils
                 {
                     types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
 
+
+                    // we can get away with pulling only the real/imag parts instead of the total 
+                    // complex magnitude because these calculations should produce purely real results. 
+                    // the other component (the one not taken) SHOULD be zero 
                     if (o % 4 == 0)
                     {
                         sum[o] += term_i.real();
@@ -327,6 +331,9 @@ namespace utils
                 {
                     types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
 
+                    // we can get away with pulling only the real/imag parts instead of the total 
+                    // complex magnitude because these calculations should produce purely real results. 
+                    // the other component (the one not taken) SHOULD be zero 
                     if (o % 4 == 0)
                     {
                         sum[o] += term_i.real();
@@ -429,7 +436,7 @@ namespace utils
             auto update = f_d1 / f_d2;
             // std::cout << "update: " << update << "\n";
             // double stopping_thresh = std::numeric_limits<double>::epsilon() * f_d1.real();
-            // if (std::fabs(update) < stopping_thresh)
+            // if (std::abs(update) < stopping_thresh)
             // {
             //     break;
             // }
@@ -441,19 +448,26 @@ namespace utils
         return std::make_pair(x_n, f_d0);
     };
 
+    template <typename IndexT=uint32_t, typename ValueT=float>
     class ExtremmaFinder
     {
         public:
 
         struct CandidateExtremma
         {
-            types::Precision time_s{std::numeric_limits<types::Precision>::quiet_NaN()};
-            types::Precision value{0.0};
-            // size_t id{};
+            IndexT time_idx{};
+            float time_idx_fraction{}; // hopefully bounded by [-1,+1] but not guaranteed
+            ValueT value{0.0};
 
             void reset()
             {
                 *this = CandidateExtremma();
+            }
+
+            // using sample_freq_hz instead of sample_period_s for precision at the cost of speed
+            types::Precision to_time_s(types::Precision sample_freq_hz) const
+            {
+                return static_cast<types::Precision>(time_idx)/sample_freq_hz + static_cast<types::Precision>(time_idx_fraction)/sample_freq_hz;
             }
         };
 
@@ -476,120 +490,160 @@ namespace utils
 
             // reset results container. each element is default constructed
 
-            last_f_d0_abs = types::Precision{-1};
-            last_f_d1_sign = 0;
-            last_tau_s = 0;
+            last_f_d1_sign = 2; // impossible value, will always record first sample as a peak
         }
 
-        void prune_before(types::Precision prune_time_s)
+        void prune_before(IndexT prune_time_idx)
         {
             for (auto & ex : extremma_)
             {
-                if (ex.time_s < prune_time_s)
+                if (ex.time_idx < prune_time_idx)
                 {
                     ex.reset();
                 }
             }
 
-            move_nans_to_back();
+            move_invalids_to_back();
         }
 
-        void filter_redundant(types::Precision tolerance_s)
+        // biased so the weaker peaks get cleared and leave the stronger ones
+        void filter_redundant(IndexT tolerance_idx)
         {
             for (int i = extremma_.size()-1; i > 0; --i)
             {
                 for (int j = i-1; j >= 0; --j)
                 {
-                    bool is_within_tolerance = std::fabs(extremma_[i].time_s - extremma_[j].time_s) <= tolerance_s;
+                    auto a = extremma_[i].time_idx;
+                    auto b = extremma_[j].time_idx;
+                    bool is_within_tolerance = ((a > b) ? (a-b) : (b-a)) <= tolerance_idx;
                     if (is_within_tolerance)
                     {
                         extremma_[i].reset();
+                        break;
                     }
                 }
             }
 
-            move_nans_to_back();
+            move_invalids_to_back();
         }
 
         template <size_t Nsamples, size_t max_derivative_order, size_t Ncoeffs>
-        size_t find_extremma(const DerivativeHelper<Nsamples, max_derivative_order>& derivative_helper, const types::array_cp<Ncoeffs> &B, types::Precision tau_s_lower_bound, types::Precision tau_s_upper_bound, types::Precision tau_s_step, types::Precision tau_to_time_offset_s=std::numeric_limits<types::Precision>::quiet_NaN())
+        size_t find_extremma(const DerivativeHelper<Nsamples, max_derivative_order>& derivative_helper, const types::array_cp<Ncoeffs> &B, IndexT tau_to_time_idx)
         {
-            bool offset_provided = !std::isnan(tau_to_time_offset_s);
-            if (!offset_provided)
+            // define tau search bounds
+            constexpr size_t idx_fh_start = Nsamples/2 + Nsamples/4; // most negative tau
+            constexpr size_t idx_fh_stop = Nsamples; // least negative tau
+            constexpr size_t idx_sh_start = 0; // least positive tau (and 0)
+            constexpr size_t idx_sh_stop = Nsamples/4; // most positive tau
+
+            // this is an over-fancy way of saying N/4
+            constexpr int index_offset_signed = DerivativeHelper<Nsamples, max_derivative_order>::surface_index_to_tau_signed_index(idx_fh_start);
+            constexpr size_t index_offset_abs = std::abs(index_offset_signed);
+            static_assert(index_offset_signed == -static_cast<int>(Nsamples)/4);
+            static_assert(index_offset_abs == Nsamples/4);
+
+            // equivelant to DerivativeHelper::index_to_tau(), but offset by Nsamples/4 so the return 
+            // value cant be negative. we only search a half a window in size, but its centered at the endpoints so we only need to add N/4
+            // auto index_to_tau_offset = [](size_t i) -> size_t
+            // {
+            //     size_t tau = (i >= Nsamples/2) ? (i-Nsamples + index_offset_abs) : (i + index_offset_abs); 
+            //     return tau;
+            // }
+
+
+            // we want tau_index to always be positive so we can use uint64_t for time_index and 
+            // tau_index. so we can force tau_index to always be positive by adding N/2 to it and 
+            // subtracting N/2 here to makeup for it
+            if (tau_to_time_idx < static_cast<IndexT>(index_offset_abs)) // TODO handle this better. somehow enforce this can never happen
             {
-                tau_to_time_offset_s = 0.0;
+                return 0;
             }
+
+            IndexT shifted_tau_to_time_idx = tau_to_time_idx - static_cast<IndexT>(index_offset_abs); // this offset added back in later with index_to_tau_offset_for_unsigned()
 
             auto sign = [](types::Precision v)
             {
-                return (v > 0.0) - (v < 0.0);
+                // old, we can make it faster...
+                // return static_cast<SignT>((v > 0.0) - (v < 0.0));
+
+                // NOTE this is will return only 1 or 0, (v < 0). not -1,0,+1
+                return static_cast<SignT>(std::signbit(v)); 
             };
 
             auto fd0_fd1_fd2 = [&derivative_helper, &B](auto tau)
             { return derivative_helper.template correlate_and_derive<2>(B, tau); };
 
-            auto check_index = [&](size_t i)
+            auto check_index = [&](size_t i, size_t tau_idx_shifted)
             {
                 auto f_d1 = derivative_helper.correlation_surface[1][i];
                 auto f_d1_sign = sign(f_d1);
 
                 if (f_d1_sign != last_f_d1_sign)
                 {
-                    auto tau_s = derivative_helper.index_to_tau(i, tau_s_step);
+                    // auto tau_idx_shifted_positive = static_cast<IndexT>(derivative_helper.index_to_tau_offset(i)); // offset 0 to N/2
                     auto f_d0 = derivative_helper.correlation_surface[0][i];
-                    // auto f_d0 = derivative_helper.correlate_at(B, tau_s);
-                    // auto f_d0 = derivative_helper.correlate_at(B, i);
-                    auto f_d0_abs = std::fabs(f_d0);
-                    // auto [fd0_, fd1_, fd2_] = fd0_fd1_fd2(tau_s);
-                    record_extremma(CandidateExtremma{.time_s = tau_s+tau_to_time_offset_s, .value = f_d0_abs});
+                    auto f_d0_abs = std::abs(static_cast<ValueT>(f_d0));
+                    record_extremma_in_min_heap(CandidateExtremma{.time_idx = static_cast<IndexT>(tau_idx_shifted) + shifted_tau_to_time_idx, .value = f_d0_abs});
                     last_f_d1_sign = f_d1_sign;
                 }
             };
 
+            // actually perform the search. 
+            // first over negative tau (most negative to least negative)
+            for (size_t i = idx_fh_start; i < idx_fh_stop; ++i)
             {
-                for (size_t i = derivative_helper.start_fh; i < derivative_helper.stop_fh; ++i)
-                {
-                    check_index(i);
-                }
+                // size_t tau_idx = i - Nsamples; // tau from -N/4 to -1 (almost 0)
+                size_t tau_idx_shifted = i - Nsamples + index_offset_abs; // tau from 0 to N/4-1 (almost N/4)
+                check_index(i, tau_idx_shifted);
             }
+        
+            // now from 0 to most positive
+            for (size_t i = idx_sh_start; i < idx_sh_stop; ++i)
             {
-                for (size_t i = derivative_helper.start_sh; i < derivative_helper.stop_sh; ++i)
-                {
-                    check_index(i);
-                }
+                // size_ tau_idx = i; // tau from 0 to N/4
+                size_t tau_idx_shifted = i + index_offset_abs; // tau from N/4 to N/2
+                check_index(i, tau_idx_shifted);
             }
+
+            const size_t tau_idx_lower_bound = shifted_tau_to_time_idx;
+
+            print(1.0/44100, tau_to_time_idx);
+            
 
             // refine the peaks that were found
             size_t n_extremma_added = 0;
-            auto time_s_lower_bound = tau_s_lower_bound + tau_to_time_offset_s;
-            for (auto &[time_s, value/*, id*/] : extremma_)
+            auto time_idx_lower_bound = shifted_tau_to_time_idx;
+            for (auto &[time_idx, time_idx_fraction, value] : extremma_)
             {
-                if (std::isnan(time_s))
+                if (time_idx == 0)
                 {
                     continue;
                 }
 
-                if (offset_provided && time_s < time_s_lower_bound) // funny story, doing this comparrison with tau instead of time runs into machine precision issues when close to the lower bound
+                if (time_idx < time_idx_lower_bound)
                 {
                     continue;
                 }
-                
-                auto tau_s = time_s - tau_to_time_offset_s;
-                auto [optimal_tau_s, optimal_f_d0] = utils::newton(fd0_fd1_fd2, tau_s);
-                time_s = optimal_tau_s + tau_to_time_offset_s; // overwrite
-                value = optimal_f_d0;  // overwrite
+
+                auto tau_idx_shifted = static_cast<size_t>(time_idx - shifted_tau_to_time_idx); // 0 to N/2
+                int tau_idx_signed = tau_idx_shifted - index_offset_abs; // tau from -N/4 to +N/4
+
+                types::Precision tau_index_signed_float = tau_idx_signed;
+                auto [optimal_tau_idx, optimal_f_d0] = utils::newton(fd0_fd1_fd2, tau_index_signed_float);
+                time_idx_fraction = optimal_tau_idx - tau_index_signed_float; // overwrite
+                value = std::abs(optimal_f_d0);  // overwrite
                 ++n_extremma_added;
             }
 
             return n_extremma_added;
         }
 
-        std::string print(types::Precision sample_period_s, types::Precision subtract_this=0.0)
+        std::string print(types::Precision sample_period_s, IndexT subtract_this=0.0)
         {
             std::stringstream out;
             for (size_t i = 0; i < extremma_.size(); ++i)
             {
-                auto &[time_s, value/*, id*/] = extremma_[i];
+                auto &[time_idx, time_idx_fractional, value] = extremma_[i];
                 out << "peak " << i << ") ";
 
                 {
@@ -598,9 +652,17 @@ namespace utils
                     ss << std::fixed << std::showpoint << std::showpos;
                     ss << std::setprecision(6);
                     // ss << std::setw(10) << std::setfill('0');
-                    ss << (time_s-subtract_this)/sample_period_s << "[] ";
-                    ss << std::setprecision(8);
-                    ss << "time_s: " << time_s << "s";
+                    if (time_idx > 0)
+                    {
+                        ss << static_cast<int64_t>(time_idx)-subtract_this << "[] ";
+                        ss << std::setprecision(8);
+                        ss << "fractional_index: " << time_idx_fractional << " ";
+                        ss << ", time_s: " << (static_cast<int64_t>(time_idx)-subtract_this+time_idx_fractional)*sample_period_s<< "s";
+                    }
+                    else
+                    {
+                        ss << "***[] fractional_index: *********** time_s: ***********s";
+                    }
                     out << ss.str();
                 }
 
@@ -608,7 +670,14 @@ namespace utils
                     std::stringstream ss;
                     ss << std::scientific << std::showpos;
                     ss << std::setprecision(8);
-                    ss << " value:" << value;
+                    if (time_idx > 0)
+                    {
+                        ss << ", value: " << value;
+                    }
+                    else
+                    {
+                        ss << ", value: **************s";
+                    }
                     out << ss.str();
                 }
 
@@ -630,36 +699,39 @@ namespace utils
     private:
         size_t n_extremma = 2 * 5 + 1; // because likely symmetry
 
-        types::Precision last_f_d0_abs{};
-        int last_f_d1_sign{};
+        typedef bool SignT;
+        SignT last_f_d1_sign{};
         types::Precision last_tau_s{};
 
         vector_extremma extremma_;
         size_t count{0};
 
-        void record_extremma(/* copy*/ CandidateExtremma this_pair)
+        void record_extremma_in_min_heap(const CandidateExtremma & candidate)
         {
-            if (std::fabs(this_pair.value) >= std::fabs(extremma_.back().value))
+            auto new_abs_value = /*std::abs*/(candidate.value);
+            if (new_abs_value < /*std::abs*/(extremma_.back().value))
             {
-                for (size_t i = 0; i < n_extremma; ++i)
-                {
-                    if (std::fabs(this_pair.value) >= std::fabs(extremma_[i].value))
-                    {
-                        auto temp_pair = extremma_[i];
-                        extremma_[i] = this_pair;
-                        this_pair = temp_pair;
-                    }
-                }
+                return;
             }
+
+            int i = n_extremma - 1; // need the sign
+
+            while ((i > 0) && (new_abs_value > /*std::abs*/(extremma_[i-1].value)))
+            {
+                extremma_[i] = extremma_[i-1];
+                --i;
+            }
+
+            extremma_[i] = candidate;
         }
 
-        void move_nans_to_back()
+        void move_invalids_to_back()
         {
 
             auto it = 
             std::remove_if(extremma_.begin(), 
                               extremma_.end(),
-                              [](const CandidateExtremma& x) { return std::isnan(x.time_s); });
+                              [](const CandidateExtremma& x) { return x.time_idx == 0; });
             
             while (it != extremma_.end())
             {
@@ -681,15 +753,16 @@ namespace utils
         utils::FFTHelper<WindowSize> chirp{};
         utils::DerivativeHelper<WindowSize, 2> derivative_helper{};
         std::array<utils::FFTHelper<WindowSize>, Nchannels> signals{};
-        std::array<utils::ExtremmaFinder, Nchannels> extremma_helpers_{};
+        typedef utils::ExtremmaFinder<> ExtremmaFinderT;
+        std::array<ExtremmaFinderT, Nchannels> extremma_helpers_{};
 
         public:
 
-        typedef utils::ExtremmaFinder::vector_extremma vector_extremma;
+        typedef ExtremmaFinderT::vector_extremma vector_extremma;
         typedef std::pair<types::Precision, types::Precision> time_bounds;
 
         template <size_t channel_index=0>
-        utils::ExtremmaFinder & extremma_helper()
+        ExtremmaFinderT & extremma_helper()
         {
             return extremma_helpers_[channel_index];
         }

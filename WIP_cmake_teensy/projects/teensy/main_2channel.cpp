@@ -306,7 +306,7 @@ void loop()
         auto delta_s = chirp_i.time_s - chirp_j.time_s;
         auto delta_mm = delta_s * constants::speed_of_sound_mmps;
 
-        if (std::fabs(delta_s) > 0.01)
+        if (std::abs(delta_s) > 0.01)
         {
           return;
         }
