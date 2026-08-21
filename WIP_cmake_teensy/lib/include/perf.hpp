@@ -356,12 +356,12 @@ auto noninteger_evaluation_naive(const TimeFuncT & time_func, PrintStreamT & pri
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
-    derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
+    utils::CorrelationHelper<domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return derivative_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.correlate_and_derive<derivative_order>(signal.coeffs, tau);
     };
 
     // auto fd0_fd1 = [&](auto tau)
@@ -400,12 +400,12 @@ auto noninteger_evaluation_better(const TimeFuncT & time_func, PrintStreamT & pr
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
-    derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
+    utils::CorrelationHelper<domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return derivative_helper.correlate_and_derive_better<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.correlate_and_derive_better<derivative_order>(signal.coeffs, tau);
     };
 
     // auto fd0_fd1 = [&](auto tau)
@@ -444,12 +444,12 @@ auto noninteger_evaluation_better2(const TimeFuncT & time_func, PrintStreamT & p
     auto signal = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::DerivativeHelper<domain::WindowSize, 2> derivative_helper;
-    derivative_helper.setup(chirp.coeffs, domain::cd_freq_hz);
+    utils::CorrelationHelper<domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return derivative_helper.correlate_and_derive_better2<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.correlate_and_derive_better2<derivative_order>(signal.coeffs, tau);
     };
 
     // auto fd0_fd1 = [&](auto tau)

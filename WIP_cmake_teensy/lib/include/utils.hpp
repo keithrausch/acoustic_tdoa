@@ -111,7 +111,7 @@ namespace utils
     }
 
     template <size_t Nsamples, size_t max_derivative_order>
-    struct DerivativeHelper
+    struct CorrelationHelper
     {
         constexpr static size_t NderivativeBuffers = max_derivative_order + 1;
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
@@ -137,7 +137,7 @@ namespace utils
             return tau;
         }
 
-        void setup(const CoeffsT &coeffs_a, types::Precision sample_freq_hz)
+        void setup(const CoeffsT &coeffs_a, types::Precision sample_freq_hz = 1.0)
         {
             static_assert(nyquist_index == Nsamples/2, "the coeffs of an r2c transform put nyquist at the end and are N/2+1 in size. a full c2c transfrom would have N coeffs (with nyquist still at N/2)");
             static_assert(Ncoeffs != Nsamples, "assuming we are using coefficients from an r2c transform");
@@ -528,7 +528,7 @@ namespace utils
         }
 
         template <size_t Nsamples, size_t max_derivative_order, size_t Ncoeffs>
-        size_t find_extremma(const DerivativeHelper<Nsamples, max_derivative_order>& derivative_helper, const types::array_cp<Ncoeffs> &B, IndexT tau_to_time_idx)
+        size_t find_extremma(const CorrelationHelper<Nsamples, max_derivative_order>& correlation_helper, const types::array_cp<Ncoeffs> &B, IndexT tau_to_time_idx)
         {
             // define tau search bounds
             constexpr size_t idx_fh_start = Nsamples/2 + Nsamples/4; // most negative tau
@@ -537,12 +537,12 @@ namespace utils
             constexpr size_t idx_sh_stop = Nsamples/4; // most positive tau
 
             // this is an over-fancy way of saying N/4
-            constexpr int index_offset_signed = DerivativeHelper<Nsamples, max_derivative_order>::surface_index_to_tau_signed_index(idx_fh_start);
+            constexpr int index_offset_signed = CorrelationHelper<Nsamples, max_derivative_order>::surface_index_to_tau_signed_index(idx_fh_start);
             constexpr size_t index_offset_abs = std::abs(index_offset_signed);
             static_assert(index_offset_signed == -static_cast<int>(Nsamples)/4);
             static_assert(index_offset_abs == Nsamples/4);
 
-            // equivelant to DerivativeHelper::index_to_tau(), but offset by Nsamples/4 so the return 
+            // equivelant to CorrelationHelper::index_to_tau(), but offset by Nsamples/4 so the return 
             // value cant be negative. we only search a half a window in size, but its centered at the endpoints so we only need to add N/4
             // auto index_to_tau_offset = [](size_t i) -> size_t
             // {
@@ -570,18 +570,18 @@ namespace utils
                 return static_cast<SignT>(std::signbit(v)); 
             };
 
-            auto fd0_fd1_fd2 = [&derivative_helper, &B](auto tau)
-            { return derivative_helper.template correlate_and_derive<2>(B, tau); };
+            auto fd0_fd1_fd2 = [&correlation_helper, &B](auto tau)
+            { return correlation_helper.template correlate_and_derive<2>(B, tau); };
 
             auto check_index = [&](size_t i, size_t tau_idx_shifted)
             {
-                auto f_d1 = derivative_helper.correlation_surface[1][i];
+                auto f_d1 = correlation_helper.correlation_surface[1][i];
                 auto f_d1_sign = sign(f_d1);
 
                 if (f_d1_sign != last_f_d1_sign)
                 {
-                    // auto tau_idx_shifted_positive = static_cast<IndexT>(derivative_helper.index_to_tau_offset(i)); // offset 0 to N/2
-                    auto f_d0 = derivative_helper.correlation_surface[0][i];
+                    // auto tau_idx_shifted_positive = static_cast<IndexT>(correlation_helper.index_to_tau_offset(i)); // offset 0 to N/2
+                    auto f_d0 = correlation_helper.correlation_surface[0][i];
                     auto f_d0_abs = std::abs(static_cast<ValueT>(f_d0));
                     record_extremma_in_min_heap(CandidateExtremma{.time_idx = static_cast<IndexT>(tau_idx_shifted) + shifted_tau_to_time_idx, .value = f_d0_abs});
                     last_f_d1_sign = f_d1_sign;
@@ -607,7 +607,7 @@ namespace utils
 
             const size_t tau_idx_lower_bound = shifted_tau_to_time_idx;
 
-            print(1.0/44100, tau_to_time_idx);
+            // print(1.0/44100, tau_to_time_idx);
             
 
             // refine the peaks that were found
@@ -742,24 +742,31 @@ namespace utils
         }
     };
 
-    template <size_t WindowSize, size_t Nchannels=1>
+    template <size_t WindowSize, size_t Nchannels=1, typename IndexT=uint32_t, typename PeakT=float>
     class Ingestor
     {
+        public:
+
+        typedef utils::ExtremmaFinder<IndexT, PeakT> ExtremmaFinderT;
+        typedef ExtremmaFinderT::vector_extremma vector_extremma;
+        typedef std::pair<IndexT, IndexT> time_bounds;
+
+        struct types {
+            using index_type = IndexT;
+            using peak_type  = PeakT;
+        };
+
         protected:
         static constexpr size_t BlockSize = WindowSize / 2;
 
-        types::Precision cd_freq_hz{};      // = 44100.0;
-        types::Precision sample_period_s{}; // = 1.0 / cd_freq_hz;
+        // types::Precision cd_freq_hz{};      // = 44100.0;
+        // types::Precision sample_period_s{}; // = 1.0 / cd_freq_hz;
         utils::FFTHelper<WindowSize> chirp{};
-        utils::DerivativeHelper<WindowSize, 2> derivative_helper{};
         std::array<utils::FFTHelper<WindowSize>, Nchannels> signals{};
-        typedef utils::ExtremmaFinder<> ExtremmaFinderT;
+        utils::CorrelationHelper<WindowSize, 2> correlation_helper{};
         std::array<ExtremmaFinderT, Nchannels> extremma_helpers_{};
 
         public:
-
-        typedef ExtremmaFinderT::vector_extremma vector_extremma;
-        typedef std::pair<types::Precision, types::Precision> time_bounds;
 
         template <size_t channel_index=0>
         ExtremmaFinderT & extremma_helper()
@@ -767,44 +774,43 @@ namespace utils
             return extremma_helpers_[channel_index];
         }
 
-        time_bounds tau_bounds_s()
+        // time_bounds tau_bounds_idx()
+        // {
+        //     return time_bounds_idx(0);
+        // }
+
+        time_bounds time_bounds_idx(IndexT tau_to_time_offset_idx)
         {
-            return time_bounds_s(0);
+            return std::make_pair(tau_to_time_offset_idx  - BlockSize/2, 
+                                  tau_to_time_offset_idx  + BlockSize/2);
         }
 
-        time_bounds time_bounds_s(types::Precision tau_to_time_offset_s)
+        void reset(const typename utils::FFTHelper<WindowSize>::RealsT &chirp_input)
         {
-            return std::make_pair(types::Precision(-0.5) * static_cast<int>(BlockSize) * sample_period_s + tau_to_time_offset_s, 
-                                  types::Precision(+0.5) * static_cast<int>(BlockSize) * sample_period_s + tau_to_time_offset_s);
-        }
-
-        void reset(const typename utils::FFTHelper<WindowSize>::RealsT &chirp_input, types::Precision cd_freq_hz_in)
-        {
-            cd_freq_hz = cd_freq_hz_in;
-            sample_period_s = 1.0 / cd_freq_hz;
+            // cd_freq_hz = cd_freq_hz_in;
+            // sample_period_s = 1.0 / cd_freq_hz;
 
             chirp.reset();
             chirp.input = chirp_input;
             chirp.transform();
-            // chirp.conjugate();
 
             for (size_t channel_index = 0; channel_index < Nchannels; ++channel_index)
             {
                 signals[channel_index].reset();
             }
 
-            derivative_helper.setup(chirp.coeffs, cd_freq_hz);
+            correlation_helper.setup(chirp.coeffs);
         }
 
         // template <size_t derivative_order, typename TauT>
         // auto correlate_and_derive(TauT tau)
         // {
         //     // auto window_period_s = WindowSize * sample_period_s;
-        //     return derivative_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau);
+        //     return correlation_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau);
         // }
 
         template <typename dataInT>
-        size_t run(size_t channel_index, dataInT *src, types::Precision tau_to_time_offset_s, size_t n_extremma, bool reset_heap = true)
+        size_t run(size_t channel_index, dataInT *src, IndexT tau_to_time_offset_idx, size_t n_extremma, bool reset_heap = true)
         {
             if (channel_index >= Nchannels)
             {
@@ -828,30 +834,33 @@ namespace utils
 
             signal.transform();
 
-            derivative_helper.template set_correlation_surface_via_fft<0>(signal.coeffs);
-            derivative_helper.template set_correlation_surface_via_fft<1>(signal.coeffs);
+            correlation_helper.template set_correlation_surface_via_fft<0>(signal.coeffs);
+            correlation_helper.template set_correlation_surface_via_fft<1>(signal.coeffs);
 
             // implement a search
-            auto [tau_s_lower_bound, tau_s_upper_bound] = tau_bounds_s();
-            auto tau_s_step = sample_period_s;
+            // auto tau_s_step = sample_period_s;
             extremma_helper.resize(n_extremma);
             if (reset_heap)
             {
                 extremma_helper.reset(n_extremma);
             }
-            return extremma_helper.find_extremma(derivative_helper, signal.coeffs, tau_s_lower_bound, tau_s_upper_bound, tau_s_step, tau_to_time_offset_s);
+            return extremma_helper.find_extremma(correlation_helper, signal.coeffs, tau_to_time_offset_idx);
         }
     };
 
-    template <size_t WindowSize, size_t Nchannels=1>
-    class SignalAcquirer : public Ingestor<WindowSize, Nchannels>
+    template <size_t WindowSize, size_t Nchannels=1, typename IndexT=uint32_t, typename PeakT=float>
+    class SignalAcquirer : public Ingestor<WindowSize, Nchannels, IndexT, PeakT>
     {
         public:
+        struct types {
+            using index_type = IndexT;
+            using peak_type  = PeakT;
+        };
 
         static constexpr size_t nDetsForHypothesis = 3;
 
         template <typename dataInT, typename CallbackT>
-        size_t run(size_t channel_index, dataInT *src, const CallbackT & callback, types::Precision tau_to_time_offset_s, size_t n_extremma, types::Precision sync_period_s, types::Precision sync_half_gate_s, types::Precision nearby_peak_tolerance_s)
+        size_t run(size_t channel_index, dataInT *src, const CallbackT & callback, IndexT tau_to_time_offset_idx, size_t n_extremma, size_t sync_period_idx, size_t sync_half_gate_idx, size_t nearby_peak_tolerance_idx)
         {
             if (channel_index >= Nchannels)
             {
@@ -861,19 +870,20 @@ namespace utils
             auto & extremma_helper = this->extremma_helpers_[channel_index];
 
             [[maybe_unused]]
-            auto n_extremma_added = Ingestor<WindowSize, Nchannels>::run(channel_index, src, tau_to_time_offset_s, n_extremma, false);
+            auto n_extremma_added = Ingestor<WindowSize, Nchannels>::run(channel_index, src, tau_to_time_offset_idx, n_extremma, false);
 
             const auto & extremma = extremma_helper.extremma();
 
             // prune dets that are way too old
-            auto prune_time_s = tau_to_time_offset_s - nDetsForHypothesis * (sync_period_s + sync_half_gate_s);
-            if (!std::isnan(prune_time_s))
+            IndexT window_size_idx = nDetsForHypothesis * (sync_period_idx + sync_half_gate_idx);
+            if (window_size_idx > 0)
             {
-                extremma_helper.prune_before(prune_time_s);
+                auto prune_time_idx = (tau_to_time_offset_idx > window_size_idx) ? (tau_to_time_offset_idx - window_size_idx) : 0;
+                extremma_helper.prune_before(prune_time_idx);
             }
-            if (!std::isnan(nearby_peak_tolerance_s))
+            if (nearby_peak_tolerance_idx > 0)
             {
-                extremma_helper.filter_redundant(nearby_peak_tolerance_s);
+                extremma_helper.filter_redundant(nearby_peak_tolerance_idx);
             }
 
             if (0 == n_extremma_added)
@@ -881,13 +891,13 @@ namespace utils
                 return n_extremma_added;
             }
             
-            fire_on_new_peak(channel_index, extremma, callback, tau_to_time_offset_s, sync_period_s, sync_half_gate_s);
+            fire_on_new_peak(channel_index, extremma, callback, tau_to_time_offset_idx, sync_period_idx, sync_half_gate_idx);
 
             return n_extremma_added;
         }
 
         template <typename CallbackT>
-        void fire_on_new_peak(size_t channel_index, const typename Ingestor<WindowSize, Nchannels>::vector_extremma & extremma, const CallbackT & callback, types::Precision tau_to_time_offset_s, types::Precision sync_period_s, types::Precision sync_half_gate_s)
+        void fire_on_new_peak(size_t channel_index, const typename Ingestor<WindowSize, Nchannels>::vector_extremma & extremma, const CallbackT & callback, IndexT tau_to_time_offset_idx, size_t sync_period_idx, size_t sync_half_gate_idx)
         {
             // get the detection that was just added
             // only need to search the top N, even if the points just added arent in the top N
@@ -898,8 +908,8 @@ namespace utils
                 extremma_mask[i] = false;
             }
             static_assert(nDetsForHypothesis > 0, "array size too small");
-            auto [next_youngest_time_s_lower_bound, next_youngest_time_s_upper_bound] = this->time_bounds_s(tau_to_time_offset_s);
-            auto youngest_det_time_s = types::Precision{};
+            auto [next_youngest_time_idx_lower_bound, next_youngest_time_idx_upper_bound] = this->time_bounds_idx(tau_to_time_offset_idx);
+            IndexT youngest_det_time_idx = 0;
             size_t hypothesis_size = 0;
 
             auto update_time_and_gate = [&](size_t i)
@@ -907,16 +917,16 @@ namespace utils
                 hypothesis[hypothesis_size++] = i;
                 extremma_mask[i] = true;
 
-                youngest_det_time_s = extremma[i].time_s;
-                next_youngest_time_s_lower_bound = youngest_det_time_s - sync_period_s - sync_half_gate_s;
-                next_youngest_time_s_upper_bound = youngest_det_time_s - sync_period_s + sync_half_gate_s;
+                youngest_det_time_idx = extremma[i].time_idx;
+                next_youngest_time_idx_lower_bound = youngest_det_time_idx - sync_period_idx - sync_half_gate_idx;
+                next_youngest_time_idx_upper_bound = youngest_det_time_idx - sync_period_idx + sync_half_gate_idx;
             };
 
-            auto tau_s_step = this->sample_period_s;
-            for (size_t i = 0; i < extremma.size(); ++i) 
+            // auto tau_s_step = this->sample_period_s;
+            for (size_t i = 0; i < extremma.size(); ++i)
             {
-                auto det_time_s = extremma[i].time_s;
-                if (det_time_s >= next_youngest_time_s_lower_bound - tau_s_step) // detection peak could be between blocks
+                auto det_time_idx = extremma[i].time_idx;
+                if (det_time_idx >= next_youngest_time_idx_lower_bound - /*tau_s_step*/1) // detection peak could be between blocks
                 {
                     update_time_and_gate(i);
                     break;
@@ -936,11 +946,11 @@ namespace utils
                 }
 
                 const auto & det = extremma[i];
-                auto det_time_s = det.time_s;
-                if (det_time_s >= next_youngest_time_s_lower_bound && det_time_s <= next_youngest_time_s_upper_bound)
+                auto det_time_idx = det.time_idx;
+                if (det_time_idx >= next_youngest_time_idx_lower_bound && det_time_idx <= next_youngest_time_idx_upper_bound)
                 {
                     update_time_and_gate(i);
-                    i = -1; // will be incremented back to 0
+                    i = -1; // will be incremented back to 0 when the loop iterates
                 }
 
                 if (hypothesis.size() == hypothesis_size)
