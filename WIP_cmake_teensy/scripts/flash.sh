@@ -8,7 +8,11 @@ if ! command -v "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" >/dev/null; th
     exit 1
 fi
 
+# HEX_FILE="projects_teensy_perf.hex"
+HEX_FILE="projects_teensy_2channel.hex"
+# HEX_FILE="projects_teensy_emitter.hex"
+
 "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" \
     --mcu=TEENSY41 \
     -w -v `# -r`\
-    "$ROOT/build/teensy41-release/projects/teensy/projects_teensy_perf.hex"
+    "$ROOT/build/teensy41-release/projects/teensy/$HEX_FILE"

@@ -8,9 +8,10 @@
 #include <algorithm>
 #include <limits>
 #include <cmath>
-#include <iostream>
+// #include <iostream>
 #include <iomanip>
-#include <sstream>
+// #include <sstream>
+#include <type_traits>
 
 #include "constants.hpp"
 #include "types.hpp"
@@ -18,6 +19,15 @@
 
 namespace utils
 {
+    template <typename T>
+    struct is_std_function : std::false_type {};
+
+    template <typename R, typename... Args>
+    struct is_std_function<std::function<R(Args...)>> : std::true_type {};
+
+    template <typename T>
+    inline constexpr bool is_std_function_v =
+        is_std_function<std::remove_cvref_t<T>>::value;
 
     template <typename T>
     static T sinc(T t)
@@ -45,8 +55,8 @@ namespace utils
         return utils::WaveParams{.amplitude = chirp_params.amplitude, .center_s = sinc_insertion_time_s, .freq_hz = chirp_params.freq_hz};
     }
 
-    template <typename T>
-    static T generic_sound(T t, const std::vector<WaveParams> &sin_params, const std::vector<std::pair<WaveParams, types::SoundFunctionT>> &chirp_params)
+    template <typename T, typename SoundFunctionT>
+    static T generic_sound(T t, const std::vector<WaveParams> &sin_params, const std::vector<std::pair<WaveParams, /*types::*/SoundFunctionT>> &chirp_params)
     {
         T ret = 0.0;
         for (const auto &param : sin_params)
@@ -65,14 +75,17 @@ namespace utils
         return ret;
     }
 
-    template <size_t N>
-    static types::array_p<N> create_template(size_t start_index, types::Precision sample_period_s, const types::SoundFunctionT &func, const WaveParams &params = WaveParams())
+    template <size_t N, typename SoundFunctionT>
+    static types::array_p<N> create_template(size_t start_index, types::Precision sample_period_s, const /*types::*/SoundFunctionT &func, const WaveParams &params = WaveParams())
     {
         types::array_p<N> ret;
 
-        if (!func)
+        if constexpr (is_std_function_v<SoundFunctionT>)
         {
-            return ret;
+            if (!func)
+            {
+                return ret;
+            }
         }
 
         for (size_t i = 0; i < N; ++i)
@@ -85,14 +98,14 @@ namespace utils
         return ret;
     }
 
-
-    template <typename ContainerT>
-    static void print(const std::string str, const ContainerT &container)
+    
+    template <typename StreamT, typename ContainerT>
+    static void print(const StreamT& ss, const std::string str, const ContainerT &container)
     {
-        std::cout << str + "\n";
+        ss << str + "\n";
         for (size_t i = 0; i < container.size(); ++i)
         {
-            std::cout << i << ") " << container[i] << "\n";
+            ss << i << ") " << container[i] << "\n";
         }
     }
 
@@ -133,7 +146,7 @@ namespace utils
         // output units are integers, not time
         static constexpr int surface_index_to_tau_signed_index(int i)
         {
-            int tau = (i >= Nsamples/2) ? (i-Nsamples) : i;
+            int tau = (i >= static_cast<int>(Nsamples/2)) ? (i-static_cast<int>(Nsamples)) : i;
             return tau;
         }
 
@@ -261,13 +274,13 @@ namespace utils
         }
 
         template <size_t derivative_order, typename TauT = types::Precision>
-        auto correlate_and_derive(const CoeffsT &B, const TauT tau) const
+        auto correlate_and_derive_v0(const CoeffsT &B, const TauT tau) const
         {
             return correlate_and_derive_impl(B, tau, typename std::make_index_sequence<derivative_order + 1>());
         }
 
         template <size_t derivative_order, typename TauT = types::Precision>
-        auto correlate_and_derive_better(const CoeffsT &B, const TauT tau) const
+        auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) const
         {
             constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
 
@@ -312,7 +325,7 @@ namespace utils
         }
 
         template <size_t derivative_order, typename TauT = types::Precision>
-        auto correlate_and_derive_better2(const CoeffsT &B, const TauT tau) const
+        auto correlate_and_derive_v2(const CoeffsT &B, const TauT tau) const
         {
             constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
 
@@ -358,6 +371,13 @@ namespace utils
             // sum *= duration_s;
             return sum;
         }
+    
+        
+        template <size_t derivative_order, typename TauT = types::Precision>
+        auto correlate_and_derive(const CoeffsT &B, const TauT tau) const
+        {
+            return correlate_and_derive_v2<derivative_order>(B, tau);
+        }
     };
 
     template <size_t Nsamples>
@@ -367,9 +387,9 @@ namespace utils
         typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
         typedef types::array_p<Nsamples> RealsT;
 
-        FFT_real_1d<Nsamples> fft;
-        RealsT input;
-        CoeffsT coeffs;
+        FFT_real_1d<Nsamples> fft{};
+        RealsT input{};
+        CoeffsT coeffs{};
 
         FFTHelper() = default;
         FFTHelper(FFTHelper &&rhs) = default;
@@ -414,7 +434,8 @@ namespace utils
             return sum;
         }
 
-        static FFTHelper construct_simple(types::Precision sample_period_s, const types::SoundFunctionT &chirp_func, const WaveParams &chirp_params)
+        template <typename SoundFunctionT>
+        static FFTHelper construct_simple(types::Precision sample_period_s, const /*types::*/SoundFunctionT &chirp_func, const WaveParams &chirp_params)
         {
             utils::FFTHelper<Nsamples> chirp;
             chirp.reset();
@@ -604,10 +625,6 @@ namespace utils
                 size_t tau_idx_shifted = i + index_offset_abs; // tau from N/4 to N/2
                 check_index(i, tau_idx_shifted);
             }
-
-            const size_t tau_idx_lower_bound = shifted_tau_to_time_idx;
-
-            // print(1.0/44100, tau_to_time_idx);
             
 
             // refine the peaks that were found
@@ -638,9 +655,10 @@ namespace utils
             return n_extremma_added;
         }
 
-        std::string print(types::Precision sample_period_s, IndexT subtract_this=0.0)
+        template <typename StreamT>
+        void print(StreamT & out, types::Precision sample_period_s, IndexT subtract_this=0.0)
         {
-            std::stringstream out;
+            // std::stringstream out;
             for (size_t i = 0; i < extremma_.size(); ++i)
             {
                 auto &[time_idx, time_idx_fractional, value] = extremma_[i];
@@ -663,7 +681,7 @@ namespace utils
                     {
                         ss << "***[] fractional_index: *********** time_s: ***********s";
                     }
-                    out << ss.str();
+                    // out << ss.str();
                 }
 
                 {
@@ -678,7 +696,7 @@ namespace utils
                     {
                         ss << ", value: **************s";
                     }
-                    out << ss.str();
+                    // out << ss.str();
                 }
 
                 // {
@@ -691,10 +709,11 @@ namespace utils
                 out << "\n";
             }
 
-            auto str = out.str();
-            std::cout << str;
-            return str;
+            // auto str = out.str();
+            // std::cout << str;
+            // return str;
         }
+        
     
     private:
         size_t n_extremma = 2 * 5 + 1; // because likely symmetry
@@ -748,7 +767,7 @@ namespace utils
         public:
 
         typedef utils::ExtremmaFinder<IndexT, PeakT> ExtremmaFinderT;
-        typedef ExtremmaFinderT::vector_extremma vector_extremma;
+        typedef typename ExtremmaFinderT::vector_extremma vector_extremma;
         typedef std::pair<IndexT, IndexT> time_bounds;
 
         struct types {

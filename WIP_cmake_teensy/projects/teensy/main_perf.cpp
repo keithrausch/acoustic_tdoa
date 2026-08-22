@@ -1,21 +1,6 @@
 #include <Arduino.h>
 #include "perf.hpp"
-
-struct ArduinoSerialStream
-{
-    template <typename T>
-    ArduinoSerialStream& operator<<(const T& value)
-    {
-        Serial.print(value);
-        return *this;
-    }
-
-    ArduinoSerialStream& operator<<(const std::string& value)
-    {
-        Serial.print(value.c_str());
-        return *this;
-    }
-};
+#include "serial_stream.hpp"
 
 
 void setup()

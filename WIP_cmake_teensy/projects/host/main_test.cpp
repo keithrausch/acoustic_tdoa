@@ -924,14 +924,14 @@ TEST(IngestorTest, IngestorSimpleTest)
         signal_ptr = signal.input.data() + block_index * domain::BlockSize;
         std::cout << "found peaks in first half (dirty start):\n";
         std::cout << "added " << ingestor.run(channel_index, signal_ptr, tau_to_time_offset_idx, n_extremma, reset_heap) << " extremma\n";
-        ingestor.extremma_helper().print(domain::sample_period_s, tau_to_time_offset_idx);
+        ingestor.extremma_helper().print(std::cout, domain::sample_period_s, tau_to_time_offset_idx);
         ++block_index;
 
         tau_to_time_offset_idx = block_index * domain::BlockSize; // tau of 0 means peak at this time (WindowSize/2)
         signal_ptr = signal.input.data() + block_index * domain::BlockSize;
         std::cout << "found peaks whole window (now warmed up):\n";
         std::cout << "added " << ingestor.run(channel_index, signal_ptr, tau_to_time_offset_idx, n_extremma, reset_heap) << " extremma\n";
-        ingestor.extremma_helper().print(domain::sample_period_s, tau_to_time_offset_idx);
+        ingestor.extremma_helper().print(std::cout, domain::sample_period_s, tau_to_time_offset_idx);
         ++block_index;
 
 
@@ -945,8 +945,8 @@ TEST(IngestorTest, IngestorSimpleTest)
     }
 }
 
-template <bool ChirpsOnly=false>
-static auto generate_random_sound_for_domain(const types::SoundFunctionT &chirp_func, const utils::WaveParams &chirp_params, size_t n_chirps, types::Precision sync_period_s=1.0)
+template <bool ChirpsOnly=false, typename SoundFunctionT>
+static auto generate_random_sound_for_domain(const /*types::*/SoundFunctionT &chirp_func, const utils::WaveParams &chirp_params, size_t n_chirps, types::Precision sync_period_s=1.0)
 {
     std::vector<utils::WaveParams> sound_params;
     types::Precision sound_amplitude = 0.5 * chirp_params.amplitude;
@@ -958,7 +958,7 @@ static auto generate_random_sound_for_domain(const types::SoundFunctionT &chirp_
         sound_params.push_back(utils::WaveParams{.amplitude = sound_amplitude, .center_s = 0.5 * domain::window_period_s, .freq_hz = types::Precision(2*2.3 * chirp_params.freq_hz)});
         sound_params.push_back(utils::WaveParams{.amplitude = sound_amplitude, .center_s = 0.6 * domain::window_period_s, .freq_hz = types::Precision(2*1.3 * chirp_params.freq_hz)});
     }
-    std::vector<std::pair<utils::WaveParams, types::SoundFunctionT>> multi_chirp_params;
+    std::vector<std::pair<utils::WaveParams, /*types::*/SoundFunctionT>> multi_chirp_params;
     for (size_t i = 0; i < n_chirps; ++i)
     {
         types::Precision chirp_center_s = i*sync_period_s + 0.5;
@@ -1018,7 +1018,7 @@ TEST(IngestorTest, IngestorLongTest)
         if (0 == block_index || block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            ingestor.extremma_helper().print(domain::sample_period_s, 0*tau_to_time_offset_idx);
+            ingestor.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }
@@ -1090,7 +1090,7 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
         if (/*0 == block_index ||*/ block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            acquirer.extremma_helper().print(domain::sample_period_s, 0*tau_to_time_offset_idx);
+            acquirer.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }
@@ -1221,7 +1221,7 @@ TEST(SignalLockTest, SignalLockTest_HF)
         if (/*0 == block_index ||*/ block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            acquirer.extremma_helper().print(domain::sample_period_s, 0*tau_to_time_offset_idx);
+            acquirer.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }

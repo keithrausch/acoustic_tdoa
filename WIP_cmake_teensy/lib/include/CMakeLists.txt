@@ -26,3 +26,9 @@ set_target_properties(${LIB_NAME} PROPERTIES
 
 target_include_directories(${LIB_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
+target_compile_options(tdoa_utils PRIVATE
+    -Wall
+    -Wextra
+    -Werror
+    -Wno-psabi
+)

@@ -154,7 +154,7 @@ auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 {
     constexpr size_t Nsamples = domain::WindowSize;
     auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<Nsamples, false>();
-    constexpr size_t Ncoeffs = Nsamples;
+    // constexpr size_t Ncoeffs = Nsamples;
 
     types::array_p<Nsamples> surface;
 
@@ -343,7 +343,7 @@ auto fft_r2c_radix2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 // naive non-integer evaluation
 // compute std::exp live for each coefficient in each derivative order (Nsamples*O)
 template <typename TimeFuncT, typename PrintStreamT>
-auto noninteger_evaluation_naive(const TimeFuncT & time_func, PrintStreamT & print_stream)
+auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     // chirp
     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
@@ -387,7 +387,7 @@ auto noninteger_evaluation_naive(const TimeFuncT & time_func, PrintStreamT & pri
 // less naive non-integer evaluation 
 // compute std::exp live for each coefficient, but reuse for each derivative order (N)
 template <typename TimeFuncT, typename PrintStreamT>
-auto noninteger_evaluation_better(const TimeFuncT & time_func, PrintStreamT & print_stream)
+auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     // chirp
     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
@@ -405,7 +405,7 @@ auto noninteger_evaluation_better(const TimeFuncT & time_func, PrintStreamT & pr
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return correlation_helper.correlate_and_derive_better<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.correlate_and_derive_v1<derivative_order>(signal.coeffs, tau);
     };
 
     // auto fd0_fd1 = [&](auto tau)
@@ -431,7 +431,7 @@ auto noninteger_evaluation_better(const TimeFuncT & time_func, PrintStreamT & pr
 // even less naive non-integer evalutaion
 // compute std::exp once and tweak it for each coefficient, reused for each derivative order (1+multiplies)
 template <typename TimeFuncT, typename PrintStreamT>
-auto noninteger_evaluation_better2(const TimeFuncT & time_func, PrintStreamT & print_stream)
+auto noninteger_evaluation_v2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     // chirp
     auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
@@ -449,7 +449,7 @@ auto noninteger_evaluation_better2(const TimeFuncT & time_func, PrintStreamT & p
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return correlation_helper.correlate_and_derive_better2<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.correlate_and_derive_v2<derivative_order>(signal.coeffs, tau);
     };
 
     // auto fd0_fd1 = [&](auto tau)
@@ -583,17 +583,17 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
 
     types::Precision max_correlation_peak_location_error = 1E-6;
 
-    run_test("noninteger_evaluation_naive", 
+    run_test("noninteger_evaluation_v0", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_naive<TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v0<TimeFuncT, PrintStreamT>);
 
-    run_test("noninteger_evaluation_better", 
+    run_test("noninteger_evaluation_v1", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_better<TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v1<TimeFuncT, PrintStreamT>);
 
-    run_test("noninteger_evaluation_better2", 
+    run_test("noninteger_evaluation_v2", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_better2<TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v2<TimeFuncT, PrintStreamT>);
 
 }
 

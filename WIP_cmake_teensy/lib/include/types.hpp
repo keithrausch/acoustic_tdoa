@@ -18,5 +18,5 @@ namespace types
     template <size_t N>
     using array_cp = std::array<cPrecision, N>;
 
-    typedef std::function<types::Precision(types::Precision)> SoundFunctionT;
+    // typedef std::function<types::Precision(types::Precision)> SoundFunctionT;
 }

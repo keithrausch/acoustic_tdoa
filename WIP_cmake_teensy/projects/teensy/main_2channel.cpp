@@ -1,12 +1,12 @@
 
 #include "domain.hpp"
 #include "utils.hpp"
-
-#include <SparkFun_WM8960_Arduino_Library.h> 
+#include "specifics.hpp"
+#include "serial_stream.hpp"
 
 #include <Wire.h>
 #include <SPI.h>
-#include <SerialFlash.h>
+// #include "serial_stream.hpp"
 
 // i need access to the queue size (via header and tail pointers) of Audio/play_queue.h
 #define private protected
@@ -34,7 +34,6 @@ class RauschAudioPlayQueue : public AudioPlayQueue
 };
 
 
-
 constexpr size_t Nchannels = 2;
 
 
@@ -58,18 +57,17 @@ AudioControlSGTL5000                            sgtl5000_1;     //xy=265,212
 const int myInput = AUDIO_INPUT_LINEIN;
 //const int myInput = AUDIO_INPUT_MIC;
 
-constexpr size_t n_blocks_for_chirp_cycle = 344/2;
-
-// uint32_t next_chirp_time_us = 2*1E6;
-constexpr uint32_t chirp_period_us = n_blocks_for_chirp_cycle*domain::block_period_s*1E6;
+// constexpr size_t n_blocks_for_chirp_cycle = 344/2;
+// 
+// constexpr uint32_t chirp_period_us = n_blocks_for_chirp_cycle*domain::block_period_s*1E6;
 
 uint32_t next_tlm_time_us = 1*1E6;
 constexpr uint32_t tlm_period_us = 5.0*1E6;
 
 
 // chirp
-static constexpr auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
-constexpr utils::WaveParams chirp_params = utils::WaveParams{.amplitude = 30000.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 5E3};
+// static constexpr auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
+// constexpr utils::WaveParams chirp_params = utils::WaveParams{.amplitude = 30000.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 5E3};
 utils::FFTHelper<domain::WindowSize> chirp = utils::FFTHelper<domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
 // implement a search
@@ -77,19 +75,31 @@ constexpr size_t n_extremma = 2 * 3 + 1;
 constexpr types::Precision sync_period_s = chirp_period_us * 1E-6;
 constexpr types::Precision sync_half_gate_s = 10.0 * constants::in_to_mm / constants::speed_of_sound_mmps * 0.5; // TODO MAKE SMALLER
 constexpr types::Precision nearby_peak_tolerance_s = 1.0 / chirp_params.freq_hz * 1.5;
-utils::SignalAcquirer<domain::WindowSize, Nchannels> acquirer;
-size_t block_index = 0;
 
-std::array<utils::ExtremmaFinder::CandidateExtremma, Nchannels> last_chirp;
+constexpr size_t sync_period_idx = sync_period_s * domain::cd_freq_hz;
+constexpr size_t sync_half_gate_idx = sync_half_gate_s * domain::cd_freq_hz;
+constexpr size_t nearby_peak_tolerance_idx = nearby_peak_tolerance_s * domain::cd_freq_hz;
+
+typedef uint32_t IndexT;
+typedef float PeakT;
+typedef utils::SignalAcquirer<domain::WindowSize, Nchannels, IndexT, PeakT> AcquirerT;
+AcquirerT acquirer;
+IndexT block_index = 0;
+
+std::array<AcquirerT::ExtremmaFinderT::CandidateExtremma, Nchannels> last_chirp;
 
 constexpr size_t NcachedAudioBuffers = domain::WindowSize / domain::BlockSize;
-typedef std::array<std::array<int16_t, domain::BlockSize>, NcachedAudioBuffers> CachedAudioBuffers; 
+typedef std::array<int16_t, domain::BlockSize> AudioBuffer;
+typedef std::array<AudioBuffer, NcachedAudioBuffers> CachedAudioBuffers; 
 CachedAudioBuffers out_waveform_A;
 CachedAudioBuffers out_waveform_B;
 
 
 std::array<double, Nchannels> acquirer_run_time_us;
 double blend_factor = 0.01; // use this amount of new information
+
+constexpr bool verbose = true;
+ArduinoSerialStream serial_stream{};
 
 
 void setup_play_queue(AudioPlayQueue &queue)
@@ -152,7 +162,7 @@ void setup()
     setup_play_queue(queue_out_A);
     setup_play_queue(queue_out_B);
 
-    acquirer.reset(chirp.input, domain::cd_freq_hz);
+    acquirer.reset(chirp.input);
     acquirer.extremma_helper().reset(n_extremma);
 
     // last_chirp.fill(0);
@@ -173,23 +183,15 @@ void loop()
   {
     queue_sizes[i] = queues_in[i].available();
   }
-  // if (queue_in_A_size != queue_in_B_size)
-  // {
-  //     Serial.println("!=");
-  //     return;
-  // }
 
-  auto current_time_us = micros();
+  auto current_time_us = micros(); // TODO convert to uint64_t and handle rollover
 
   // play chirp
-  // bool should_chirp = current_time_us >= next_chirp_time_us;
   bool should_chirp = ((queue_out_A.count_updates_without_data + queue_out_A.count_updates_with_data) % n_blocks_for_chirp_cycle) == 0;
   if (should_chirp)
   {
     enqueue_and_play_waveform(queue_out_A, out_waveform_A);
     enqueue_and_play_waveform(queue_out_B, out_waveform_B);
-
-    // next_chirp_time_us += chirp_period_us;
   }
 
   // send tlm
@@ -201,17 +203,20 @@ void loop()
 
   if (should_tlm)
   {
-    std::stringstream ss;
-    for (size_t c = 0; c < Nchannels; ++c)
+    if constexpr(verbose)
     {
-      ss << "queue["<<c<<"] - size: " << queues_in[c].available();
-      ss << ", run time: " << acquirer_run_time_us[c] ;
-      ss << "us (EMA)\n";
-    }
-    Serial.print(ss.str().c_str());
+      // std::stringstream ss;
+      for (size_t c = 0; c < Nchannels; ++c)
+      {
+        serial_stream << "queue["<<c<<"] - size: " << queues_in[c].available();
+        serial_stream << ", run time: " << acquirer_run_time_us[c] ;
+        serial_stream << "us (EMA)\n";
+      }
+      // Serial.print(ss.str().c_str());
 
-    Serial.print("block_index");
-    Serial.println(block_index);
+      Serial.print("block_index");
+      Serial.println(block_index);
+    }
 
     next_tlm_time_us += tlm_period_us;
   }
@@ -221,7 +226,7 @@ void loop()
     std::array<bool, Nchannels> got_chirp;
     got_chirp.fill(false);
 
-    auto on_chirp = [&](size_t channel_index, const utils::ExtremmaFinder::CandidateExtremma & det)
+    auto on_chirp = [&](size_t channel_index, const AcquirerT::ExtremmaFinderT::CandidateExtremma & det)
     {
         if (channel_index < last_chirp.size())
         {
@@ -230,46 +235,46 @@ void loop()
         }
     };
 
-    auto run_on_channel = [&](size_t c /* channel index*/)
+    auto run_on_channel = [&](size_t channel_index)
     {
 
-      auto block_time_s = block_index * domain::block_period_s; // time stamp of the first sample in this block
-      auto tau_to_time_offset_s = block_time_s;
+      IndexT tau_to_time_offset_idx = block_index * domain::BlockSize; // tau of 0 corresponds to a peak at this time;
 
-      if (queue_sizes[c] > 0)
+      if (queue_sizes[channel_index] > 0)
       {
-        auto src_ptr = queues_in[c].readBuffer();
+        auto src_ptr = queues_in[channel_index].readBuffer();
 
         auto start_us = micros();
-        auto n_extremma_added = acquirer.run(c, src_ptr, on_chirp, tau_to_time_offset_s, n_extremma, sync_period_s, sync_half_gate_s, nearby_peak_tolerance_s);
+        auto n_extremma_added = acquirer.run(channel_index, src_ptr, on_chirp, tau_to_time_offset_idx, n_extremma, sync_period_idx, sync_half_gate_idx, nearby_peak_tolerance_idx);
         auto stop_us = micros();
         auto delta_us = stop_us - start_us;
 
         
-        acquirer_run_time_us[c] = blend_factor * delta_us + (1.0-blend_factor) * acquirer_run_time_us[c];
+        acquirer_run_time_us[channel_index] = blend_factor * delta_us + (1.0-blend_factor) * acquirer_run_time_us[channel_index];
         
-        queues_in[c].freeBuffer();
-        --queue_sizes[c];
+        queues_in[channel_index].freeBuffer();
+        --queue_sizes[channel_index];
 
         // optional print
-        // if (false)
-        // {
-        //   std::stringstream ss;
-        //   ss << "n_extremma_added: " << n_extremma_added << "\n";
-        //   ss << "block_time_s = " << block_time_s << "s block_index = " << block_index << "[]\n";
-        //   ss << acquirer.extremma_helper().print(domain::sample_period_s);
-        //   Serial.println(ss.str().c_str());
-        //   std::cout << "";
-        // }
+        if constexpr (false)
+        {
+          serial_stream << "n_extremma_added: " << n_extremma_added << "\n";
+          serial_stream << "tau_to_time_offset_idx = " << tau_to_time_offset_idx << "[] block_index = " << block_index << "[]\n";
+          // serial_stream << acquirer.extremma_helper().print(serial_stream, domain::sample_period_s);
+          // Serial.println(ss.str().c_str());
+          // std::cout << "";
+        }
       }
     };
 
+    // figure out how many elements we can chew from each input queue
     int Nchew = 2; // max chew amount
     for (size_t c = 0; c < Nchannels; ++c)
     {
       Nchew = std::min(Nchew, queue_sizes[c]);
     }
 
+    // process incoming data
     for (int i = 0; i < Nchew; ++i)
     {
       for (size_t c = 0; c < Nchannels; ++c)
@@ -280,11 +285,11 @@ void loop()
       ++block_index;
     }
 
-    // new process every combination of microphones
+    // now process every combination of microphones
     for (size_t i = 0; i < Nchannels-1; ++i)
     {
         auto & chirp_i = last_chirp[i];
-        if (std::isnan(chirp_i.time_s))
+        if (0 == chirp_i.time_idx)
         {
           continue;
         }
@@ -293,7 +298,7 @@ void loop()
       {
         auto & chirp_j = last_chirp[j];
 
-        if (std::isnan(chirp_j.time_s))
+        if (0 == chirp_j.time_idx)
         {
           continue;
         }
@@ -303,23 +308,38 @@ void loop()
           continue;
         }
 
-        auto delta_s = chirp_i.time_s - chirp_j.time_s;
-        auto delta_mm = delta_s * constants::speed_of_sound_mmps;
+        // compute chirp_i.time_idx - chirp_j.time_idx but be careful of unsignd differences
+        double delta_ij_idx = 0;
+        if (chirp_i.time_idx > chirp_j.time_idx)
+        {
+          delta_ij_idx = +1 * static_cast<double>(chirp_i.time_idx - chirp_j.time_idx);
+        }
+        else
+        {
+          delta_ij_idx = -1 * static_cast<double>(chirp_j.time_idx - chirp_i.time_idx);
+        }
+        delta_ij_idx += (static_cast<double>(chirp_i.time_idx_fraction) - static_cast<double>(chirp_j.time_idx_fraction));
+        double delta_ij_s = delta_ij_idx * domain::sample_period_s;
 
-        if (std::abs(delta_s) > 0.01)
+        auto delta_ij_mm = delta_ij_s * constants::speed_of_sound_mmps;
+
+        // TODO remove me
+        if (std::abs(delta_ij_s) > 0.01)
         {
           return;
         }
 
-        std::stringstream ss;
-        ss <<  "chirp detected between channels "<<i<<"&"<<j<<":";
-        ss << std::fixed << std::showpoint << std::showpos;
-        ss << std::setprecision(8);
-        ss <<" mic["<<i<<"].time: " << chirp_i.time_s << "s, mic["<<j<<"].time: " << chirp_j.time_s;
-        ss << std::setprecision(2);
-        ss << "s, TDOA: " << delta_s*1E6 << "us, linear_intra_mic_distance: " << delta_mm << "mm\n";
-
-        Serial.print(ss.str().c_str());
+        if constexpr(verbose)
+        {
+          // std::stringstream ss;
+          serial_stream <<  "chirp detected between channels "<<i<<"&"<<j<<":";
+          // serial_stream << std::fixed << std::showpoint << std::showpos;
+          // serial_stream << std::setprecision(8);
+          serial_stream <<" mic["<<i<<"].time_idx: " << chirp_i.time_idx << chirp_i.time_idx_fraction << "s, mic["<<j<<"].time_idx: " << chirp_j.time_idx << chirp_j.time_idx_fraction;
+          // serial_stream << std::setprecision(2);
+          serial_stream << "s, TDOA: " << delta_ij_s*1E6 << "us, linear_intra_mic_distance: " << delta_ij_mm << "mm\n";
+          // Serial.print(ss.str().c_str());
+        }
       }
     }
 }
