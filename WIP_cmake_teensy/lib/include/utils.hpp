@@ -448,7 +448,7 @@ namespace utils
 
 
     template <typename CallableT>
-    std::pair<types::Precision, types::Precision> newton(const CallableT &fd0_fd1_fd2, types::Precision guess_tau_s, size_t n_steps = 3)
+    std::pair<types::Precision, types::Precision> newton(const CallableT &fd0_fd1_fd2, types::Precision guess_tau_s, size_t n_steps = 4)
     {
         types::Precision x_n = guess_tau_s;
         for (size_t i = 0; i < n_steps; ++i)

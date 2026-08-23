@@ -9,7 +9,7 @@ if ! command -v "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" >/dev/null; th
 fi
 
 # HEX_FILE="projects_teensy_perf.hex"
-HEX_FILE="projects_teensy_2channel.hex"
+HEX_FILE="projects_teensy_4channel.hex"
 # HEX_FILE="projects_teensy_emitter.hex"
 
 "$ROOT/tools/teensy_loader_cli/teensy_loader_cli" \

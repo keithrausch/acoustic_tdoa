@@ -12,54 +12,23 @@
 #define private protected
 #include <Audio.h>
 
-class RauschAudioPlayQueue : public AudioPlayQueue
-{
-  void update(void)
-  {
-    uint32_t t = tail;
-    if (t != head) {
-      ++count_updates_with_data;
-    }
-    else
-    {
-      ++count_updates_without_data;
-    }
 
-    AudioPlayQueue::update();
-  }
-
-  public:
-  volatile uint32_t count_updates_with_data{0};
-  volatile uint32_t count_updates_without_data{0};
-};
-
-
-constexpr size_t Nchannels = 2;
+constexpr size_t Nchannels = 4;
 
 
 // GUItool: begin automatically generated code
-AudioInputI2S                                   i2s_in;             //xy=105,63
-std::array<AudioRecordQueue, Nchannels>         queues_in;         //xy=281,63
-// AudioRecordQueue                                queue_in_A;         //xy=281,63
-// AudioRecordQueue                                queue_in_B;         //xy=281,63
-AudioConnection                                 patchCord1(i2s_in, 0, queues_in[0], 0);
-AudioConnection                                 patchCord2(i2s_in, 1, queues_in[1], 0);
-
-RauschAudioPlayQueue /* was AudioPlayQueue */   queue_out_A;         //xy=520,322
-RauschAudioPlayQueue /* was AudioPlayQueue */   queue_out_B;         //xy=562,229
-AudioOutputI2S                                  i2s_out;             //xy=735,255
-AudioConnection                                 patchCord3(queue_out_A, 0, i2s_out, 1);
-AudioConnection                                 patchCord4(queue_out_B, 0, i2s_out, 0);
-AudioControlSGTL5000                            sgtl5000_1;     //xy=265,212
+AudioInputI2SQuad                               i2s_in;
+std::array<AudioRecordQueue, Nchannels>         queues_in;
+AudioConnection                                 patchCordA(i2s_in, 0, queues_in[0], 0);
+AudioConnection                                 patchCordB(i2s_in, 1, queues_in[1], 0);
+AudioConnection                                 patchCordC(i2s_in, 2, queues_in[2], 0);
+AudioConnection                                 patchCordD(i2s_in, 3, queues_in[3], 0);
+AudioControlSGTL5000                            sgtl5000_1;
+AudioControlSGTL5000                            sgtl5000_2;
 // GUItool: end automatically generated code
 
 // which input on the audio shield will be used?
-const int myInput = AUDIO_INPUT_LINEIN;
-//const int myInput = AUDIO_INPUT_MIC;
-
-// constexpr size_t n_blocks_for_chirp_cycle = 344/2;
-// 
-// constexpr uint32_t chirp_period_us = n_blocks_for_chirp_cycle*domain::block_period_s*1E6;
+const int myInput = AUDIO_INPUT_LINEIN; // AUDIO_INPUT_MIC;
 
 uint32_t next_tlm_time_us = 1*1E6;
 constexpr uint32_t tlm_period_us = 5.0*1E6;
@@ -102,31 +71,6 @@ constexpr bool verbose = true;
 ArduinoSerialStream serial_stream{};
 
 
-void setup_play_queue(AudioPlayQueue &queue)
-{
-  // queue.setBehaviour(AudioPlayQueue::NON_STALLING);
-  queue.setMaxBuffers(2); // documentation says minimum number of buffers is 2
-}
-
-void enqueue_and_play_waveform(AudioPlayQueue &queue, const CachedAudioBuffers& src)
-{
-  static_assert(NcachedAudioBuffers >= 2, "must queue up at least 2 buffers at a time?");
-
-  for (const auto & buf : src)
-  {
-    int16_t* dst = queue.getBuffer();
-
-    if (! dst)
-    {
-      return;
-    }
-
-    memcpy(dst, buf.data(), buf.size() * sizeof(*dst));
-    queue.playBuffer(); // this adds this to the output queue. will begin playing next possible chance
-  }
-}
-
-
 void setup()
 {
     Serial.begin(115200);
@@ -135,32 +79,17 @@ void setup()
     AudioMemory(1024);
 
     // Enable the audio shield, select input, and enable output
+    sgtl5000_1.setAddress(LOW);
+    sgtl5000_2.setAddress(HIGH);
+
     sgtl5000_1.enable();
+    sgtl5000_2.enable();
+
     sgtl5000_1.inputSelect(myInput);
+    sgtl5000_2.inputSelect(myInput);
+
     sgtl5000_1.volume(0.9);
-
-    // inputs
-    // queue1.begin();
-    // queue2.begin();
-
-    auto copy_chirp_to_dst = [&](CachedAudioBuffers & output_buffers, auto &chirp, double digital_amplitude)
-    {
-      for (size_t src = 0; src < chirp.input.size(); ++src)
-      {
-        size_t buffer_index = src / BUFFER_LENGTH;
-        size_t dst = src % BUFFER_LENGTH;
-        output_buffers[buffer_index][dst] = digital_amplitude * chirp.input[src];
-      }
-    };
-
-    double digital_volume_A = 1.0;
-    double digital_volume_B = 0.0;
-    copy_chirp_to_dst(out_waveform_A, chirp, digital_volume_A);
-    copy_chirp_to_dst(out_waveform_B, chirp, digital_volume_B);
-
-
-    setup_play_queue(queue_out_A);
-    setup_play_queue(queue_out_B);
+    sgtl5000_2.volume(0.9);
 
     acquirer.reset(chirp.input);
     acquirer.extremma_helper().reset(n_extremma);
@@ -178,6 +107,34 @@ void setup()
 
 void loop()
 {
+
+//     if (queues_in[0].available() &&
+//         queues_in[1].available() &&
+//         queues_in[2].available() &&
+//         queues_in[3].available())
+//     {
+// 
+//         std::array<uint32_t, 4> sums{};
+// 
+//         for (size_t c = 0; c < 4; ++c)
+//         {
+//           sums[c] = 0;
+//           int16_t* p = queues_in[c].readBuffer();
+//           for (size_t i = 0; i < 128; ++i)
+//           {
+//             sums[c] += std::abs(static_cast<int>(p[i]));
+//           }
+//         }
+// 
+//         Serial.printf("%lu,\t%lu,\t%lu,\t%lu\n",
+//             sums[0], sums[1], sums[2], sums[3]);
+// 
+//         for (auto &q : queues_in)
+//             q.freeBuffer();
+// 
+//         // while (1) {}
+//     }
+
   std::array<int, Nchannels> queue_sizes;
   for (size_t i = 0; i < Nchannels; ++i)
   {
@@ -185,14 +142,6 @@ void loop()
   }
 
   auto current_time_us = micros(); // TODO convert to uint64_t and handle rollover
-
-  // play chirp
-  bool should_chirp = ((queue_out_A.count_updates_without_data + queue_out_A.count_updates_with_data) % n_blocks_for_chirp_cycle) == 0;
-  if (should_chirp)
-  {
-    enqueue_and_play_waveform(queue_out_A, out_waveform_A);
-    enqueue_and_play_waveform(queue_out_B, out_waveform_B);
-  }
 
   // send tlm
   bool should_tlm = (current_time_us >= next_tlm_time_us);
@@ -277,6 +226,19 @@ void loop()
     // process incoming data
     for (int i = 0; i < Nchew; ++i)
     {
+
+//         int16_t *a = queues_in[0].readBuffer();
+//         int16_t *b = queues_in[1].readBuffer();
+//         int16_t *c = queues_in[2].readBuffer();
+//         int16_t *d = queues_in[3].readBuffer();
+// 
+//         uint32_t ii = block_index * 128;
+//         for (int n = 0; n < 128; ++n)
+//         {
+//             Serial.printf("%lu,%d,%d,%d,%d\n",
+//                 (ii+n), a[n], b[n], c[n], d[n]);
+//         }
+
       for (size_t c = 0; c < Nchannels; ++c)
       {
         run_on_channel(c);
@@ -285,7 +247,10 @@ void loop()
       ++block_index;
     }
 
+    std::array<int, Nchannels> manual_index_offsets{0, 0, 0, 0};
+
     // now process every combination of microphones
+    bool printed_any = false;
     for (size_t i = 0; i < Nchannels-1; ++i)
     {
         auto & chirp_i = last_chirp[i];
@@ -293,6 +258,8 @@ void loop()
         {
           continue;
         }
+
+      IndexT time_i_idx = chirp_i.time_idx + manual_index_offsets[i];
 
       for (size_t j = i + 1; j < Nchannels; ++j)
       {
@@ -308,15 +275,17 @@ void loop()
           continue;
         }
 
+        IndexT time_j_idx = chirp_j.time_idx + manual_index_offsets[j];
+
         // compute chirp_i.time_idx - chirp_j.time_idx but be careful of unsignd differences
         double delta_ij_idx = 0;
-        if (chirp_i.time_idx > chirp_j.time_idx)
+        if (time_i_idx > time_j_idx)
         {
-          delta_ij_idx = +1 * static_cast<double>(chirp_i.time_idx - chirp_j.time_idx);
+          delta_ij_idx = +1 * static_cast<double>(time_i_idx - time_j_idx);
         }
         else
         {
-          delta_ij_idx = -1 * static_cast<double>(chirp_j.time_idx - chirp_i.time_idx);
+          delta_ij_idx = -1 * static_cast<double>(time_j_idx - time_i_idx);
         }
         delta_ij_idx += (static_cast<double>(chirp_i.time_idx_fraction) - static_cast<double>(chirp_j.time_idx_fraction));
         double delta_ij_s = delta_ij_idx * domain::sample_period_s;
@@ -335,11 +304,16 @@ void loop()
           serial_stream <<  "chirp detected between channels "<<i<<"&"<<j<<":";
           // serial_stream << std::fixed << std::showpoint << std::showpos;
           // serial_stream << std::setprecision(8);
-          serial_stream <<" mic["<<i<<"].time_idx: " << chirp_i.time_idx << chirp_i.time_idx_fraction << "s, mic["<<j<<"].time_idx: " << chirp_j.time_idx << chirp_j.time_idx_fraction;
+          serial_stream <<" mic["<<i<<"].time_idx: " << time_i_idx << chirp_i.time_idx_fraction << "[], mic["<<j<<"].time_idx: " << time_j_idx << chirp_j.time_idx_fraction;
           // serial_stream << std::setprecision(2);
-          serial_stream << "s, TDOA: " << delta_ij_s*1E6 << "us, linear_intra_mic_distance: " << delta_ij_mm << "mm\n";
+          serial_stream << "[], TDOA: " << delta_ij_s*1E6 << "us, linear_intra_mic_distance: " << delta_ij_mm << "mm\n";
           // Serial.print(ss.str().c_str());
+          printed_any |= true;
         }
       }
+    }
+    if (printed_any)
+    {
+      serial_stream << "\n";
     }
 }

@@ -174,12 +174,12 @@ target_link_libraries(projects_teensy_perf.elf stdc++)
 
 
 #
-# 2channel
+# 4channel
 #
-teensy_add_executable(projects_teensy_2channel main_2channel.cpp)
-set_teensy_cxx23(projects_teensy_2channel)
-target_link_libraries(projects_teensy_2channel.elf tdoa_utils)
-teensy_target_link_libraries(projects_teensy_2channel
+teensy_add_executable(projects_teensy_4channel main_4channel.cpp)
+set_teensy_cxx23(projects_teensy_4channel)
+target_link_libraries(projects_teensy_4channel.elf tdoa_utils)
+teensy_target_link_libraries(projects_teensy_4channel
     cores
     SPI
     Wire # needed for Audio
@@ -189,7 +189,7 @@ teensy_target_link_libraries(projects_teensy_2channel
     QNEthernet
 )
 # set(CMAKE_EXE_LINKER_FLAGS "--specs=nano.specs" CACHE INTERNAL "") already provided by teensy-cmake-macros?
-target_link_libraries(projects_teensy_2channel.elf stdc++)
+target_link_libraries(projects_teensy_4channel.elf stdc++)
 
 
 #
