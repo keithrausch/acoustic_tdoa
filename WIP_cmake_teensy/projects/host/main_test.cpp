@@ -13,25 +13,24 @@
 template <typename Precision>
 struct ErrorThresholds
 {
-    using DomainT = Domain<Precision>;
-    constexpr static Precision residual_s_tolerance = 0.5 * DomainT::sample_period_s;
+    using domain = Domain<Precision>;
+    constexpr static Precision residual_s_tolerance = 0.5 * domain::sample_period_s;
     constexpr static Precision residual_mm_tolerance_tight = 1.0;
     constexpr static Precision residual_mm_tolerance_loose = 2.0;
 };
 
-using TypesT = Types<double, uint32_t, float>;
-using types = TypesT;
+using types = Types<double, uint32_t, float>;
 using Precision = typename types::precision_type;
 using Real = typename types::real_type;
 using Complex = typename types::complex_type;
 using TimeIndex = typename types::time_index_type;
-using DomainT = Domain<Precision>;
-using ConstantsT = Constants<Real, Complex>;
+using domain = Domain<Precision>;
+using constants = Constants<Real, Complex>;
 using WaveParamsT = utils::WaveParams<Precision>;
-using FFTHelperT = utils::FFTHelper<TypesT, DomainT::WindowSize>;
+using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 using ErrorThresholdsT = ErrorThresholds<Precision>;
-using IngestorT = utils::Ingestor<TypesT, DomainT::WindowSize>;
-using AcquirerT = utils::SignalAcquirer<TypesT, DomainT::WindowSize, 1>;
+using IngestorT = utils::Ingestor<types, domain::WindowSize>;
+using AcquirerT = utils::SignalAcquirer<types, domain::WindowSize, 1>;
 
 template <typename T>
 void assert_eq(const T& arrA, const T& arrB, double abs_tol = 1E-6, double rel_tol = 1E-6/*1E-12*/)
@@ -148,7 +147,7 @@ TEST(CalibrationTest, CalibrationTest)
         for (size_t m = 0; m < Nm; ++m)
         {
             Precision distance = (pos_s[s]-pos_m[m]).norm(); // meters
-            measurement_times[s][m] = distance * ConstantsT::speed_of_sound_spm;
+            measurement_times[s][m] = distance * constants::speed_of_sound_spm;
         }
     }
 
@@ -259,13 +258,13 @@ TEST(CalibrationTest, CalibrationTest)
                 Precision norm_a = std::sqrt(norm_squared_a);
                 Precision norm_b = std::sqrt(norm_squared_b);
 
-                auto val = (delta_a.norm() - delta_b.norm())*ConstantsT::speed_of_sound_spm - measurements_true[meas_index];
+                auto val = (delta_a.norm() - delta_b.norm())*constants::speed_of_sound_spm - measurements_true[meas_index];
                 measurements_est[meas_index] = val;
 
                 Precision inv_norm_a = 1.0 / norm_a;
                 Precision inv_norm_b = 1.0 / norm_b;
-                Vec J_ma = inv_norm_a * delta_a.transpose() * ConstantsT::speed_of_sound_spm;
-                Vec J_mb = inv_norm_b * delta_b.transpose() * -1 * ConstantsT::speed_of_sound_spm;
+                Vec J_ma = inv_norm_a * delta_a.transpose() * constants::speed_of_sound_spm;
+                Vec J_mb = inv_norm_b * delta_b.transpose() * -1 * constants::speed_of_sound_spm;
                 Vec J_s  = -1 * (J_ma + J_mb);
                 jac.block<1,3>(meas_index, 3*a) = J_ma;
                 jac.block<1,3>(meas_index, 3*b) = J_mb;
@@ -292,13 +291,13 @@ TEST(CalibrationTest, CalibrationTest)
                 Precision norm_a = std::sqrt(norm_squared_a);
                 Precision norm_b = std::sqrt(norm_squared_b);
                 
-                auto val = (delta_a.norm() - delta_b.norm()) * ConstantsT::speed_of_sound_spm - measurements_true[meas_index];
+                auto val = (delta_a.norm() - delta_b.norm()) * constants::speed_of_sound_spm - measurements_true[meas_index];
                 measurements_est[meas_index] = val;
 
                 Precision inv_norm_a = 1.0 / norm_a;
                 Precision inv_norm_b = 1.0 / norm_b;
-                Vec J_sa = inv_norm_a * delta_a.transpose() * ConstantsT::speed_of_sound_spm;
-                Vec J_sb = inv_norm_b * delta_b.transpose() * -1 * ConstantsT::speed_of_sound_spm;
+                Vec J_sa = inv_norm_a * delta_a.transpose() * constants::speed_of_sound_spm;
+                Vec J_sb = inv_norm_b * delta_b.transpose() * -1 * constants::speed_of_sound_spm;
                 Vec J_m  = -1 * (J_sa + J_sb);
                 jac.block<1,3>(meas_index, 3*Nm + 3*a) = J_sa;
                 jac.block<1,3>(meas_index, 3*Nm + 3*b) = J_sb;
@@ -474,8 +473,8 @@ TEST_FFT_C2C(N32, 32)
 TEST_FFT_C2C(N64, 64)
 TEST_FFT_C2C(N128, 128)
 TEST_FFT_C2C(N256, 256)
-TEST_FFT_C2C(BlockSize, DomainT::BlockSize)
-TEST_FFT_C2C(WindowSize, DomainT::WindowSize)
+TEST_FFT_C2C(BlockSize, domain::BlockSize)
+TEST_FFT_C2C(WindowSize, domain::WindowSize)
 
 template <size_t Nsamples>
 void run_r2c_test_for_Nsamples()
@@ -572,8 +571,8 @@ TEST_FFT_R2C(N32, 32)
 TEST_FFT_R2C(N64, 64)
 TEST_FFT_R2C(N128, 128)
 TEST_FFT_R2C(N256, 256)
-TEST_FFT_R2C(BlockSize, DomainT::BlockSize)
-TEST_FFT_R2C(WindowSize, DomainT::WindowSize)
+TEST_FFT_R2C(BlockSize, domain::BlockSize)
+TEST_FFT_R2C(WindowSize, domain::WindowSize)
 
 
 template <size_t derivative_order>
@@ -581,11 +580,11 @@ void test_correlation_helper_on_derivative_order_over_full_window()
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 10E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 10E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    typename types::template array_r<DomainT::WindowSize> signal_input;
+    typename types::template array_r<domain::WindowSize> signal_input;
     for (size_t i = 0; i < signal_input.size(); ++i)
     {
         signal_input[i] = i % 17;
@@ -597,19 +596,19 @@ void test_correlation_helper_on_derivative_order_over_full_window()
     signal.transform();
 
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, derivative_order> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, derivative_order> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     {
         correlation_helper.template set_correlation_surface_via_fft<derivative_order>(signal.coeffs);
 
-        Precision tau_s_lower_bound = 0.0; // -1.0 /* whole window */ * static_cast<int>(DomainT::BlockSize) * DomainT::sample_period_s;
-        Precision tau_s_upper_bound = +2.0 /* whole window */ * static_cast<int>(DomainT::BlockSize) * DomainT::sample_period_s;
-        Precision tau_s_step = DomainT::sample_period_s;
+        Precision tau_s_lower_bound = 0.0; // -1.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
+        Precision tau_s_upper_bound = +2.0 /* whole window */ * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
+        Precision tau_s_step = domain::sample_period_s;
 
         // the chirp was centered at half the window duration, so the 0th index in the fft outputs
         // should correspond to tau of 0
-        typename types::template array_r<DomainT::WindowSize> nsquared_results;
+        typename types::template array_r<domain::WindowSize> nsquared_results;
         auto tau_s = tau_s_lower_bound;
         for (size_t i = 0; i < nsquared_results.size(); ++i)
         {
@@ -617,7 +616,7 @@ void test_correlation_helper_on_derivative_order_over_full_window()
             tau_s += tau_s_step;
         }
 
-        typename types::template array_r<DomainT::WindowSize> resid;
+        typename types::template array_r<domain::WindowSize> resid;
         for (size_t i = 0; i < resid.size(); ++i )
         {
             resid[i] = std::abs(correlation_helper.correlation_surfaces[derivative_order][i] - nsquared_results[i]);
@@ -633,11 +632,11 @@ void test_correlation_helper_on_derivative_order_over_mid_window()
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 10E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 10E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    typename types::template array_r<DomainT::WindowSize> signal_input;
+    typename types::template array_r<domain::WindowSize> signal_input;
     for (size_t i = 0; i < signal_input.size(); ++i)
     {
         signal_input[i] = i % 17;
@@ -649,17 +648,17 @@ void test_correlation_helper_on_derivative_order_over_mid_window()
     signal.transform();
 
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, derivative_order> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, derivative_order> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     {
         correlation_helper.template set_correlation_surface_via_fft<derivative_order>(signal.coeffs);
 
-        Precision tau_s_lower_bound = -0.5 * static_cast<int>(DomainT::BlockSize) * DomainT::sample_period_s;
-        Precision tau_s_upper_bound = +0.5 * static_cast<int>(DomainT::BlockSize) * DomainT::sample_period_s;
-        Precision tau_s_step = DomainT::sample_period_s;
+        Precision tau_s_lower_bound = -0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
+        Precision tau_s_upper_bound = +0.5 * static_cast<int>(domain::BlockSize) * domain::sample_period_s;
+        Precision tau_s_step = domain::sample_period_s;
 
-        typename types::template array_r<DomainT::BlockSize> nsquared_results;
+        typename types::template array_r<domain::BlockSize> nsquared_results;
         auto tau_s = tau_s_lower_bound;
         for (size_t i = 0; i < nsquared_results.size(); ++i)
         {
@@ -671,18 +670,18 @@ void test_correlation_helper_on_derivative_order_over_mid_window()
         // the fft results corresponds to a tau of 0, we need to the back quarter of the window 
         // (negative tau) and then concatenate that with the first quarter of the window (positive 
         // tau)
-        typename types::template array_r<DomainT::BlockSize> fft_results_reordered;
+        typename types::template array_r<domain::BlockSize> fft_results_reordered;
         size_t i = 0;
 
         // this is the "negative tau" side of the results. all the way from most negative to 0
-        for (size_t j = 0; j < DomainT::BlockSize/2; ++j)
+        for (size_t j = 0; j < domain::BlockSize/2; ++j)
         {
-            auto offset = DomainT::BlockSize + DomainT::BlockSize/2;
+            auto offset = domain::BlockSize + domain::BlockSize/2;
             fft_results_reordered[i++] = correlation_helper.correlation_surfaces[derivative_order][offset+j];
         }
 
         // this is the "positive tau" side of the results. all the way from 0 to most positive
-        for (size_t j = 0 ; j < DomainT::BlockSize/2; ++j)
+        for (size_t j = 0 ; j < domain::BlockSize/2; ++j)
         {
             fft_results_reordered[i++] = correlation_helper.correlation_surfaces[derivative_order][j];
         }
@@ -742,14 +741,14 @@ TEST(ReconstructionTest, ReconstructionTestManual)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
-    typename types::template array_r<DomainT::WindowSize> reconstructed;
+    typename types::template array_r<domain::WindowSize> reconstructed;
     for (size_t k = 0; k < reconstructed.size(); ++k)
     {
         reconstructed[k] = chirp.manually_reconstruct_at_index(k);
-        reconstructed[k] /= DomainT::WindowSize; // our transforms are unnormalized
+        reconstructed[k] /= domain::WindowSize; // our transforms are unnormalized
     }
 
     assert_eq(reconstructed, chirp.input);
@@ -759,11 +758,11 @@ TEST(ReconstructionTest, ReconstructionTestFFT)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
-    typename types::template array_r<DomainT::WindowSize> reconstructed;
-    utils::FFT_real_1d<DomainT::WindowSize, Real, Complex> fft_real_1d{};
+    typename types::template array_r<domain::WindowSize> reconstructed;
+    utils::FFT_real_1d<domain::WindowSize, Real, Complex> fft_real_1d{};
 
     fft_real_1d.reset(+1);
     fft_real_1d.c2r(chirp.coeffs, reconstructed);
@@ -777,8 +776,8 @@ template <typename CorrelationHelperT, typename FFTHelperT, typename TauT>
 auto eval_and_print(const CorrelationHelperT & correlation_helper, const FFTHelperT & signal, const TauT tau)
 {
     const auto &B = signal.coeffs;
-    Precision duration_s = DomainT::window_period_s;
-    constexpr size_t Nsamples = DomainT::WindowSize;
+    Precision duration_s = domain::window_period_s;
+    constexpr size_t Nsamples = domain::WindowSize;
 
     auto [f, f_d1, f_d2] = correlation_helper.template correlate_and_derive<2>(B, tau);
 
@@ -807,17 +806,17 @@ void peak_finder_test(Precision offset_s)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    // auto offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    // auto offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, 2> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
 
 
@@ -829,7 +828,7 @@ void peak_finder_test(Precision offset_s)
 
     static constexpr bool verbose = true;
 
-    Precision guessed_tau_s = tau_true_s + (offset_s < 0 ? -1 : +1) * 0.5 * DomainT::sample_period_s;
+    Precision guessed_tau_s = tau_true_s + (offset_s < 0 ? -1 : +1) * 0.5 * domain::sample_period_s;
     auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
 
     if constexpr (verbose)
@@ -846,8 +845,8 @@ void peak_finder_test(Precision offset_s)
     ASSERT_LT(std::abs(f_d1), 1E-10) << "derivative should be super close to 0";
 
     auto residual_s = (tau_true_s - optimal_tau_s);
-    auto residual_mm = ConstantsT::speed_of_sound_mmps * residual_s;
-    std::cout << "residual: " << residual_s/DomainT::sample_period_s << "(fractions of a sample), " << residual_mm << "mm\n";
+    auto residual_mm = constants::speed_of_sound_mmps * residual_s;
+    std::cout << "residual: " << residual_s/domain::sample_period_s << "(fractions of a sample), " << residual_mm << "mm\n";
 
     ASSERT_LT(std::abs(residual_s), ErrorThresholdsT::residual_s_tolerance);
     ASSERT_LT(std::abs(residual_mm), ErrorThresholdsT::residual_mm_tolerance_tight);
@@ -856,13 +855,13 @@ void peak_finder_test(Precision offset_s)
 
 TEST(PeakFinderTest, PeakFinderTest_PositiveTau)
 {
-    Precision offset_s = 0.52 * DomainT::sample_period_s;
+    Precision offset_s = 0.52 * domain::sample_period_s;
     peak_finder_test(offset_s);
 }
 
 TEST(PeakFinderTest, PeakFinderTest_NegativeTau)
 {
-    Precision offset_s =  -0.52 * DomainT::sample_period_s;
+    Precision offset_s =  -0.52 * domain::sample_period_s;
     peak_finder_test(offset_s);
 }
 
@@ -870,16 +869,16 @@ TEST(ExtremmaFinderTest, ExtremmaFinderTest)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    Precision offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    Precision offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto time_true_s = signal_params.center_s;
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, 2> correlation_helper;
+    utils::CorrelationHelper<types, domain::WindowSize, 2> correlation_helper;
     correlation_helper.setup(chirp.coeffs, 1); // LOOK HERE. ASSUMING ONE SAMPLE A SECOND SO WE CAN INDEX
 
     auto correlate_and_derive = [&correlation_helper, &signal]<size_t derivative_order>(auto tau)
@@ -892,19 +891,19 @@ TEST(ExtremmaFinderTest, ExtremmaFinderTest)
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;
-    uint64_t tau_to_time_offset = DomainT::WindowSize/2; // tau of 0 means a peak at this time
-    utils::ExtremmaFinder<TypesT> extremma_helper;
+    uint64_t tau_to_time_offset = domain::WindowSize/2; // tau of 0 means a peak at this time
+    utils::ExtremmaFinder<types> extremma_helper;
     extremma_helper.reset(n_extremma);
     extremma_helper.find_extremma(correlation_helper, signal.coeffs, tau_to_time_offset);
 
     // std::cout << "min heap:\n";
     // std::cout << "time_true_s; " << time_true_s << "\n"; 
-    // extremma_helper.print(DomainT::sample_period_s, tau_to_time_offset);
+    // extremma_helper.print(domain::sample_period_s, tau_to_time_offset);
 
     auto & strongest_peak = extremma_helper.extremma()[0];
-    auto found_peak_time_s = strongest_peak.to_time_s(DomainT::cd_freq_hz);
+    auto found_peak_time_s = strongest_peak.to_time_s(domain::cd_freq_hz);
     auto residual_s = found_peak_time_s - time_true_s;
-    auto residual_mm = residual_s * ConstantsT::speed_of_sound_mmps;
+    auto residual_mm = residual_s * constants::speed_of_sound_mmps;
 
     // std::cout << "XXX\n";
     // eval_and_print(correlation_helper, signal, found_peak_time_s);
@@ -917,13 +916,13 @@ TEST(IngestorTest, IngestorSimpleTest)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    Precision offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    Precision offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto time_true_s = signal_params.center_s;
 
     size_t n_extremma = 2 * 3 + 1;
@@ -942,25 +941,25 @@ TEST(IngestorTest, IngestorSimpleTest)
     
         constexpr size_t channel_index = 0;
 
-        tau_to_time_offset_idx = block_index * DomainT::BlockSize; // 0
-        signal_ptr = signal.input.data() + block_index * DomainT::BlockSize;
+        tau_to_time_offset_idx = block_index * domain::BlockSize; // 0
+        signal_ptr = signal.input.data() + block_index * domain::BlockSize;
         std::cout << "found peaks in first half (dirty start):\n";
         std::cout << "added " << ingestor.run(channel_index, signal_ptr, tau_to_time_offset_idx, n_extremma, reset_heap) << " extremma\n";
-        ingestor.extremma_helper().print(std::cout, DomainT::sample_period_s, tau_to_time_offset_idx);
+        ingestor.extremma_helper().print(std::cout, domain::sample_period_s, tau_to_time_offset_idx);
         ++block_index;
 
-        tau_to_time_offset_idx = block_index * DomainT::BlockSize; // tau of 0 means peak at this time (WindowSize/2)
-        signal_ptr = signal.input.data() + block_index * DomainT::BlockSize;
+        tau_to_time_offset_idx = block_index * domain::BlockSize; // tau of 0 means peak at this time (WindowSize/2)
+        signal_ptr = signal.input.data() + block_index * domain::BlockSize;
         std::cout << "found peaks whole window (now warmed up):\n";
         std::cout << "added " << ingestor.run(channel_index, signal_ptr, tau_to_time_offset_idx, n_extremma, reset_heap) << " extremma\n";
-        ingestor.extremma_helper().print(std::cout, DomainT::sample_period_s, tau_to_time_offset_idx);
+        ingestor.extremma_helper().print(std::cout, domain::sample_period_s, tau_to_time_offset_idx);
         ++block_index;
 
 
         auto & strongest_peak = ingestor.extremma_helper().extremma()[0];
-        auto found_peak_time_s = strongest_peak.to_time_s(DomainT::cd_freq_hz);
+        auto found_peak_time_s = strongest_peak.to_time_s(domain::cd_freq_hz);
         auto residual_s = found_peak_time_s - time_true_s;
-        auto residual_mm = residual_s * ConstantsT::speed_of_sound_mmps;
+        auto residual_mm = residual_s * constants::speed_of_sound_mmps;
 
         ASSERT_LT(std::abs(residual_s), ErrorThresholdsT::residual_s_tolerance);
         ASSERT_LT(std::abs(residual_mm), ErrorThresholdsT::residual_mm_tolerance_tight);
@@ -974,11 +973,11 @@ static auto generate_random_sound_for_domain(const SoundFunctionT &chirp_func, c
     Precision sound_amplitude = 0.5 * chirp_params.amplitude;
     if (!ChirpsOnly)
     {
-        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.0 * DomainT::window_period_s, .freq_hz = Precision(2*5.0 * chirp_params.freq_hz)});
-        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.3 * DomainT::window_period_s, .freq_hz = Precision(2*4.0 * chirp_params.freq_hz)});
-        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.4 * DomainT::window_period_s, .freq_hz = Precision(2*3.3 * chirp_params.freq_hz)});
-        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.5 * DomainT::window_period_s, .freq_hz = Precision(2*2.3 * chirp_params.freq_hz)});
-        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.6 * DomainT::window_period_s, .freq_hz = Precision(2*1.3 * chirp_params.freq_hz)});
+        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.0 * domain::window_period_s, .freq_hz = Precision(2*5.0 * chirp_params.freq_hz)});
+        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.3 * domain::window_period_s, .freq_hz = Precision(2*4.0 * chirp_params.freq_hz)});
+        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.4 * domain::window_period_s, .freq_hz = Precision(2*3.3 * chirp_params.freq_hz)});
+        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.5 * domain::window_period_s, .freq_hz = Precision(2*2.3 * chirp_params.freq_hz)});
+        sound_params.push_back(WaveParamsT{.amplitude = sound_amplitude, .center_s = 0.6 * domain::window_period_s, .freq_hz = Precision(2*1.3 * chirp_params.freq_hz)});
     }
     std::vector<std::pair<WaveParamsT, SoundFunctionT>> multi_chirp_params;
     for (size_t i = 0; i < n_chirps; ++i)
@@ -989,16 +988,16 @@ static auto generate_random_sound_for_domain(const SoundFunctionT &chirp_func, c
     auto generate_sound = [=](Precision t)
     { return utils::generic_sound(t, sound_params, multi_chirp_params); };
     const auto duration_s = (n_chirps+0.5) * sync_period_s;
-    const size_t n_samples = (duration_s * DomainT::cd_freq_hz) + DomainT::BlockSize;
+    const size_t n_samples = (duration_s * domain::cd_freq_hz) + domain::BlockSize;
     std::shared_ptr<size_t> n_generated = std::make_shared<size_t>(0);
     auto get_next_block = [generate_sound, n_generated /* stateful */]()
     { 
         auto & count = *n_generated;
-        auto signal_block = utils::create_template<DomainT::BlockSize>(count, DomainT::sample_period_s, generate_sound);
-        count += DomainT::BlockSize;
+        auto signal_block = utils::create_template<domain::BlockSize>(count, domain::sample_period_s, generate_sound);
+        count += domain::BlockSize;
         return signal_block;
     };
-    // auto signal_inputs = utils::create_template(n_samples, DomainT::sample_period_s, generate_sound);
+    // auto signal_inputs = utils::create_template(n_samples, domain::sample_period_s, generate_sound);
     return std::make_tuple(n_samples, get_next_block, multi_chirp_params);
 }
 
@@ -1006,8 +1005,8 @@ TEST(IngestorTest, IngestorLongTest)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;
@@ -1026,11 +1025,11 @@ TEST(IngestorTest, IngestorLongTest)
     ingestor.extremma_helper().reset(n_extremma);
     constexpr size_t channel_index = 0;
 
-    auto n_blocks = n_samples / DomainT::BlockSize; // signal_inputs.size() / DomainT::BlockSize;
+    auto n_blocks = n_samples / domain::BlockSize; // signal_inputs.size() / domain::BlockSize;
     for (size_t block_index = 0; block_index < n_blocks; ++block_index)
     {
         constexpr bool reset_heap = false;
-        TimeIndex tau_to_time_offset_idx = block_index * DomainT::BlockSize;
+        TimeIndex tau_to_time_offset_idx = block_index * domain::BlockSize;
         auto signal_block = get_next_block();
         auto signal_ptr = signal_block.data();
         auto n_extremma_added = ingestor.run(channel_index, signal_ptr, tau_to_time_offset_idx, n_extremma, reset_heap);
@@ -1039,7 +1038,7 @@ TEST(IngestorTest, IngestorLongTest)
         if (0 == block_index || block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            ingestor.extremma_helper().print(std::cout, DomainT::sample_period_s, 0*tau_to_time_offset_idx);
+            ingestor.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }
@@ -1050,10 +1049,10 @@ TEST(IngestorTest, IngestorLongTest)
     std::sort(extremma_sorted.begin(), extremma_sorted.end(), [](const IngestorT::ExtremmaFinderT::CandidateExtremma & ex1, const IngestorT::ExtremmaFinderT::CandidateExtremma & ex2){return ex1.time_idx < ex2.time_idx;});
     for (size_t i = 0; i < n_chirps; ++i)
     {
-        auto residual_s = multi_chirp_params[i].first.center_s - extremma_sorted[i].to_time_s(DomainT::cd_freq_hz);
-        auto residual_mm = residual_s * ConstantsT::speed_of_sound_mmps;
-        auto residual_percentsamplerate = residual_s / DomainT::sample_period_s * 100.0;
-        std::cout << "chirp["<<i<<"]: time_idx: "<<multi_chirp_params[i].first.center_s/DomainT::sample_period_s<<", residual_s: " << residual_s << "s, residual_mm: " << residual_mm << "mm, residual_%samplerate: " <<residual_percentsamplerate<< "%\n";
+        auto residual_s = multi_chirp_params[i].first.center_s - extremma_sorted[i].to_time_s(domain::cd_freq_hz);
+        auto residual_mm = residual_s * constants::speed_of_sound_mmps;
+        auto residual_percentsamplerate = residual_s / domain::sample_period_s * 100.0;
+        std::cout << "chirp["<<i<<"]: time_idx: "<<multi_chirp_params[i].first.center_s/domain::sample_period_s<<", residual_s: " << residual_s << "s, residual_mm: " << residual_mm << "mm, residual_%samplerate: " <<residual_percentsamplerate<< "%\n";
 
         EXPECT_LT(std::abs(residual_s), ErrorThresholdsT::residual_s_tolerance);
         EXPECT_LT(std::abs(residual_mm), ErrorThresholdsT::residual_mm_tolerance_tight);
@@ -1065,18 +1064,18 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;
     Precision sync_period_s = 1.0; // 1s worth of samples
-    Precision sync_half_gate_s = 1.0 * ConstantsT::in_to_mm / ConstantsT::speed_of_sound_mmps * 0.5;
+    Precision sync_half_gate_s = 1.0 * constants::in_to_mm / constants::speed_of_sound_mmps * 0.5;
     Precision nearby_peak_toleranc_s = 1.0 / chirp_params.freq_hz * 1.5;
 
-    size_t sync_period_idx = sync_period_s * DomainT::cd_freq_hz;
-    size_t sync_half_gate_idx = sync_half_gate_s * DomainT::cd_freq_hz;
-    size_t nearby_peak_tolerance_idx = nearby_peak_toleranc_s * DomainT::cd_freq_hz;
+    size_t sync_period_idx = sync_period_s * domain::cd_freq_hz;
+    size_t sync_half_gate_idx = sync_half_gate_s * domain::cd_freq_hz;
+    size_t nearby_peak_tolerance_idx = nearby_peak_toleranc_s * domain::cd_freq_hz;
 
     constexpr size_t n_chirps = 10;
     constexpr bool chirps_only = true;
@@ -1098,10 +1097,10 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
         detected.push_back(det);
     };
 
-    auto n_blocks = n_samples / DomainT::BlockSize;// signal_inputs.size() / DomainT::BlockSize;
+    auto n_blocks = n_samples / domain::BlockSize;// signal_inputs.size() / domain::BlockSize;
     for (size_t block_index = 0; block_index < n_blocks; ++block_index)
     {
-        TimeIndex tau_to_time_offset_idx = block_index * DomainT::BlockSize;
+        TimeIndex tau_to_time_offset_idx = block_index * domain::BlockSize;
         auto signal_block = get_next_block();
         auto signal_ptr = signal_block.data();
         acquirer.run(channel_index, signal_ptr, on_chirp, tau_to_time_offset_idx, n_extremma, sync_period_idx, sync_half_gate_idx, nearby_peak_tolerance_idx);
@@ -1110,7 +1109,7 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
         if (/*0 == block_index ||*/ block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            acquirer.extremma_helper().print(std::cout, DomainT::sample_period_s, 0*tau_to_time_offset_idx);
+            acquirer.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }
@@ -1123,9 +1122,9 @@ TEST(SignalLockTest, SignalLockTest_LF_NoEnvSound)
     for (size_t i = 0; i < n_chirps-offset; ++i)
     {
         auto & params_this_chirp = multi_chirp_params[i+offset];
-        auto residual_s = params_this_chirp.first.center_s - detected[i].to_time_s(DomainT::cd_freq_hz);
-        auto residual_mm = residual_s * ConstantsT::speed_of_sound_mmps;
-        auto residual_percentsamplerate = residual_s / DomainT::sample_period_s * 100.0;
+        auto residual_s = params_this_chirp.first.center_s - detected[i].to_time_s(domain::cd_freq_hz);
+        auto residual_mm = residual_s * constants::speed_of_sound_mmps;
+        auto residual_percentsamplerate = residual_s / domain::sample_period_s * 100.0;
         std::cout << "chirp["<<i<<"]: residual_s: " << residual_s << "s, residual_mm: " << residual_mm << "mm, residual_%samplerate: " <<residual_percentsamplerate<< "%\n";
 
         EXPECT_LT(std::abs(residual_s), ErrorThresholdsT::residual_s_tolerance);
@@ -1139,18 +1138,18 @@ TEST(SignalLockTest, PeakDetector)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 15E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 15E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;
     Precision sync_period_s = 1.0;
-    Precision sync_half_gate_s = 50.0 * ConstantsT::in_to_mm / ConstantsT::speed_of_sound_mmps * 0.5;
+    Precision sync_half_gate_s = 50.0 * constants::in_to_mm / constants::speed_of_sound_mmps * 0.5;
     Precision nearby_peak_tolerance_s = 1.0 / chirp_params.freq_hz * 1.5;
 
-    size_t sync_period_idx = sync_period_s * DomainT::cd_freq_hz;
-    size_t sync_half_gate_idx = sync_half_gate_s * DomainT::cd_freq_hz;
-    size_t nearby_peak_tolerance_idx = nearby_peak_tolerance_s * DomainT::cd_freq_hz;
+    size_t sync_period_idx = sync_period_s * domain::cd_freq_hz;
+    size_t sync_half_gate_idx = sync_half_gate_s * domain::cd_freq_hz;
+    size_t nearby_peak_tolerance_idx = nearby_peak_tolerance_s * domain::cd_freq_hz;
 
     constexpr size_t n_chirps = 300;
     constexpr bool chirps_only = false;
@@ -1173,15 +1172,15 @@ TEST(SignalLockTest, PeakDetector)
     };
 
     AcquirerT::vector_extremma extremma;
-    extremma.push_back({.time_idx= static_cast<TimeIndex>(+31.09244246*DomainT::cd_freq_hz), .value=-9.32685364e+06});
-    extremma.push_back({.time_idx= static_cast<TimeIndex>(+33.09226129*DomainT::cd_freq_hz), .value=-9.40550662e+06});
-    extremma.push_back({.time_idx= static_cast<TimeIndex>(+32.09090072*DomainT::cd_freq_hz), .value=-9.15504890e+06});
+    extremma.push_back({.time_idx= static_cast<TimeIndex>(+31.09244246*domain::cd_freq_hz), .value=-9.32685364e+06});
+    extremma.push_back({.time_idx= static_cast<TimeIndex>(+33.09226129*domain::cd_freq_hz), .value=-9.40550662e+06});
+    extremma.push_back({.time_idx= static_cast<TimeIndex>(+32.09090072*domain::cd_freq_hz), .value=-9.15504890e+06});
     extremma.push_back(AcquirerT::ExtremmaFinderT::CandidateExtremma());
     extremma.push_back(AcquirerT::ExtremmaFinderT::CandidateExtremma());
     extremma.push_back(AcquirerT::ExtremmaFinderT::CandidateExtremma());
     extremma.push_back(AcquirerT::ExtremmaFinderT::CandidateExtremma());
 
-    TimeIndex tau_to_time_offset_idx = 11400 * DomainT::BlockSize;
+    TimeIndex tau_to_time_offset_idx = 11400 * domain::BlockSize;
     acquirer.fire_on_new_peak(channel_index, extremma, on_chirp, tau_to_time_offset_idx, sync_period_idx, sync_half_gate_idx);
 
     auto n_detected_chirps = detected.size();
@@ -1193,18 +1192,18 @@ TEST(SignalLockTest, SignalLockTest_HF)
 {
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<Precision>;
-    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 15E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = WaveParamsT{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 15E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // implement a search
     size_t n_extremma = 2 * 3 + 1;
     Precision sync_period_s = 1.0;
-    Precision sync_half_gate_s = 1.0 * ConstantsT::in_to_mm / ConstantsT::speed_of_sound_mmps * 0.5;
+    Precision sync_half_gate_s = 1.0 * constants::in_to_mm / constants::speed_of_sound_mmps * 0.5;
     Precision nearby_peak_tolerance_s = 1.0 / chirp_params.freq_hz * 1.5;
 
-    size_t sync_period_idx = sync_period_s * DomainT::cd_freq_hz;
-    size_t sync_half_gate_idx = sync_half_gate_s * DomainT::cd_freq_hz;
-    size_t nearby_peak_tolerance_idx = nearby_peak_tolerance_s * DomainT::cd_freq_hz;
+    size_t sync_period_idx = sync_period_s * domain::cd_freq_hz;
+    size_t sync_half_gate_idx = sync_half_gate_s * domain::cd_freq_hz;
+    size_t nearby_peak_tolerance_idx = nearby_peak_tolerance_s * domain::cd_freq_hz;
 
     constexpr size_t n_chirps = 60;
     constexpr bool chirps_only = false;
@@ -1226,10 +1225,10 @@ TEST(SignalLockTest, SignalLockTest_HF)
         detected.push_back(det);
     };
 
-    auto n_blocks = n_samples / DomainT::BlockSize;
+    auto n_blocks = n_samples / domain::BlockSize;
     for (size_t block_index = 0; block_index < n_blocks; ++block_index)
     {
-        TimeIndex tau_to_time_offset_idx = block_index * DomainT::BlockSize;
+        TimeIndex tau_to_time_offset_idx = block_index * domain::BlockSize;
         auto signal_block = get_next_block();
         auto signal_ptr = signal_block.data();
         acquirer.run(channel_index, signal_ptr, on_chirp, tau_to_time_offset_idx, n_extremma, sync_period_idx, sync_half_gate_idx, nearby_peak_tolerance_idx);
@@ -1239,7 +1238,7 @@ TEST(SignalLockTest, SignalLockTest_HF)
         if (/*0 == block_index ||*/ block_index == n_blocks-1)
         {
             std::cout << "block_index = " << block_index << "[], tau_to_time_offset_idx = " << 0*tau_to_time_offset_idx << "[]\n";
-            acquirer.extremma_helper().print(std::cout, DomainT::sample_period_s, 0*tau_to_time_offset_idx);
+            acquirer.extremma_helper().print(std::cout, domain::sample_period_s, 0*tau_to_time_offset_idx);
             std::cout << "";
         }
     }
@@ -1252,9 +1251,9 @@ TEST(SignalLockTest, SignalLockTest_HF)
     for (size_t i = 0; i < n_chirps-offset; ++i)
     {
         auto & params_this_chirp = multi_chirp_params[i+offset];
-        auto residual_s = params_this_chirp.first.center_s - detected[i].to_time_s(DomainT::cd_freq_hz);
-        auto residual_mm = residual_s * ConstantsT::speed_of_sound_mmps;
-        auto residual_percentsamplerate = residual_s / DomainT::sample_period_s * 100.0;
+        auto residual_s = params_this_chirp.first.center_s - detected[i].to_time_s(domain::cd_freq_hz);
+        auto residual_mm = residual_s * constants::speed_of_sound_mmps;
+        auto residual_percentsamplerate = residual_s / domain::sample_period_s * 100.0;
         std::cout << "chirp["<<i<<"]: residual_s: " << residual_s << "s, residual_mm: " << residual_mm << "mm, residual_%samplerate: " <<residual_percentsamplerate<< "%\n";
 
         EXPECT_LT(std::abs(residual_s), ErrorThresholdsT::residual_s_tolerance);

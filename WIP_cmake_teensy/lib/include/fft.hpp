@@ -45,7 +45,7 @@ namespace utils
         constexpr static size_t Ncoeffs = Nsamples; // complex in means no redundant data
         using OutputT = std::array<Complex, Ncoeffs>;
         using InputT = std::array<Real, Nsamples>;
-        using ConstantsT = Constants<Real, Complex>;
+        using constants = Constants<Real, Complex>;
 
         std::array<Complex, Ncoeffs> twiddles;
 
@@ -65,7 +65,7 @@ namespace utils
             static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
             for (size_t k = 0; k < Ncoeffs; ++k)
             {
-                twiddles[k] = std::exp( exponent_sign * ConstantsT::twopij * static_cast<Real>(k) / static_cast<Real>(Nsamples*2));
+                twiddles[k] = std::exp( exponent_sign * constants::twopij * static_cast<Real>(k) / static_cast<Real>(Nsamples*2));
             }
 
             for (size_t i = 0; i < Ncoeffs; ++i)
@@ -190,7 +190,7 @@ namespace utils
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
         using CoeffsT = std::array<Complex, Ncoeffs>;
         using RealsT = std::array<Real, Nsamples>;
-        using ConstantsT = Constants<Real, Complex>;
+        using constants = Constants<Real, Complex>;
         
         private:
         using FFT_c2c_1d_T = FFT_c2c_1d<Nsamples/2, Real, Complex>;
@@ -229,7 +229,7 @@ namespace utils
 
                 
                 auto Zx = (a + b_conj);
-                auto Zy = ConstantsT::j * (b_conj - a);
+                auto Zy = constants::j * (b_conj - a);
                 auto W_i = twiddles[i];
                 output[i] = Real(0.5) * (Zx + W_i*Zy);
 
@@ -268,8 +268,8 @@ namespace utils
                 auto Zx = /* Real(0.5) * */ (P + Q);
                 auto Zy = /* Real(0.5) * */ W * (P - Q);
                 // NOTE: removing *0.5 because we need to scale the output by 2
-                auto Z = Zx + ConstantsT::j * Zy;
-                // auto Zm_conj = Zx - ConstantsT::j * Zy;
+                auto Z = Zx + constants::j * Zy;
+                // auto Zm_conj = Zx - constants::j * Zy;
                 // auto Zm = std::conj(Zm_conj);
 
                 complex_buffer[i] = Z;
@@ -288,8 +288,8 @@ namespace utils
                 auto Zy = /*Real(0.5) * */ W * (P - Q_conj);
                 // NOTE: removing *0.5 because we need to scale the output by 2
                 
-                auto Z = Zx + ConstantsT::j * Zy;
-                auto Zm_conj = Zx - ConstantsT::j * Zy;
+                auto Z = Zx + constants::j * Zy;
+                auto Zm_conj = Zx - constants::j * Zy;
                 auto Zm = std::conj(Zm_conj);
 
                 complex_buffer[i] = Z;

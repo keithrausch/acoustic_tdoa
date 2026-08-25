@@ -17,19 +17,18 @@ struct PerfResults
 
 // helper function to get representative chirp and signal coefficients (using either pure c2c 
 // transform with Ncoeffs == Nsamples or r2c transform with Ncoeffs == Nsamples / 2 + 1)
-template <typename TypesT, size_t Nsamples, bool r2c_else_c2c = true>
+template <typename types, size_t Nsamples, bool r2c_else_c2c = true>
 auto get_chirp_and_signal()
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
+    using domain = Domain<Precision>;
 
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<types::Precision>;
-    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = DomainT::sample_period_s * Nsamples * 0.5, .freq_hz = 10E3};
-    auto chirp = utils::FFTHelper<TypesT, Nsamples>::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = domain::sample_period_s * Nsamples * 0.5, .freq_hz = 10E3};
+    auto chirp = utils::FFTHelper<types, Nsamples>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
     typename types::template array_r<Nsamples> signal_input;
@@ -38,7 +37,7 @@ auto get_chirp_and_signal()
         signal_input[i] = i % 17;
     }
 
-    utils::FFTHelper<TypesT, Nsamples> signal;
+    utils::FFTHelper<types, Nsamples> signal;
     signal.reset();
     signal.input = signal_input;
     signal.transform();
@@ -87,17 +86,16 @@ auto get_chirp_and_signal()
 
 // helper function to get representative chirp and signal coefficients as well as their full 
 // correlation surface
-template <typename TypesT, size_t Nsamples, bool r2c_else_c2c=true>
+template <typename types, size_t Nsamples, bool r2c_else_c2c=true>
 auto get_chirp_and_signal_and_surface()
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
 
-    auto [c2c_coeffs_a_conj, c2c_coeffs_b] = get_chirp_and_signal<TypesT, Nsamples, false>();
+    auto [c2c_coeffs_a_conj, c2c_coeffs_b] = get_chirp_and_signal<types, Nsamples, false>();
 
     typename types::template array_r<Nsamples> surface;
 
@@ -109,9 +107,9 @@ auto get_chirp_and_signal_and_surface()
             auto a_conj = c2c_coeffs_a_conj[i];
             auto b = c2c_coeffs_b[i];
 
-            Real freq = (output_index * i) / Real(DomainT::WindowSize);
+            Real freq = (output_index * i) / Real(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(ConstantsT::twopij * freq);
+            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
 
             sum += term_i.real();
         }
@@ -120,7 +118,7 @@ auto get_chirp_and_signal_and_surface()
     }
 
 
-    auto [coeffs_a_conj, coeffs_b] = get_chirp_and_signal<TypesT, Nsamples, r2c_else_c2c>();
+    auto [coeffs_a_conj, coeffs_b] = get_chirp_and_signal<types, Nsamples, r2c_else_c2c>();
     return std::make_tuple(coeffs_a_conj, coeffs_b, surface);
 }
 
@@ -145,10 +143,9 @@ T get_max_abs_error(const std::array<T, N> & vecA, const std::array<T, N> & vecB
 
 
 // example to show how to create a benchmark
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto example(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
 
     auto time_start = time_func();
@@ -165,19 +162,18 @@ auto example(const TimeFuncT & time_func, PrintStreamT & print_stream)
 // fully naive implementation. 
 // compute std::exp live (no pre-compute)
 // multiply all coefficients, N*N operations
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
 
-    constexpr size_t Nsamples = DomainT::WindowSize;
+    constexpr size_t Nsamples = domain::WindowSize;
 
-    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<TypesT, Nsamples, false>();
+    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<types, Nsamples, false>();
     // constexpr size_t Ncoeffs = Nsamples;
 
     typename types::template array_r<Nsamples> surface;
@@ -192,9 +188,9 @@ auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
             auto a_conj = coeffs_a_conj[i];
             auto b = coeffs_b[i];
 
-            Real freq = output_index * i / static_cast<Real>(DomainT::WindowSize);
+            Real freq = output_index * i / static_cast<Real>(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(ConstantsT::twopij * freq);
+            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
 
             sum += term_i.real();
         }
@@ -214,19 +210,18 @@ auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 // use half the coefficients by leveraging conjugate symmetry (N/2+1 insead of N)
 // reduce that number more since many chirp coefficients are ~0
 // use half the outputs since we dont need them
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream, double percent_threshold = -0.1)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
 
-    constexpr size_t Nsamples = DomainT::WindowSize;
+    constexpr size_t Nsamples = domain::WindowSize;
     
-    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<TypesT, Nsamples>();
+    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<types, Nsamples>();
     constexpr size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
     
     // double the coefficients. but skip DC and Nyquist, they stand alone
@@ -266,9 +261,9 @@ auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
             auto a_conj = coeffs_a_conj[i];
             auto b = coeffs_b[i];
 
-            Real freq = output_index * i / Real(DomainT::WindowSize);
+            Real freq = output_index * i / Real(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(ConstantsT::twopij * freq);
+            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
 
             sum += term_i.real();
         }
@@ -287,19 +282,18 @@ auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 // pre-compute std::liveexp
 // use half the coefficients by leveraging conjugate symmetry
 // use all chirp coefficients, even those near 0
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto naive_r2c_precompute_exp(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
 
-    constexpr size_t Nsamples = DomainT::WindowSize;
+    constexpr size_t Nsamples = domain::WindowSize;
 
-    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<TypesT, Nsamples>();
+    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<types, Nsamples>();
     constexpr size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
     
     // double the coefficients. but skip DC and Nyquist, they stand alone
@@ -316,9 +310,9 @@ auto naive_r2c_precompute_exp(const TimeFuncT & time_func, PrintStreamT & print_
     {
         for (size_t i = 0; i < Ncoeffs; ++i)
         {
-            Real freq = (output_index * i) / Real(DomainT::WindowSize);
+            Real freq = (output_index * i) / Real(domain::WindowSize);
             auto a_conj = coeffs_a_conj[i];
-            Wn[output_index][i] = a_conj * std::exp(ConstantsT::twopij * freq);
+            Wn[output_index][i] = a_conj * std::exp(constants::twopij * freq);
         }
     }
 
@@ -348,19 +342,18 @@ auto naive_r2c_precompute_exp(const TimeFuncT & time_func, PrintStreamT & print_
 }
 
 // efficient radix2 implementation
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto fft_r2c_radix2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
 
-    constexpr size_t Nsamples = DomainT::WindowSize;
+    constexpr size_t Nsamples = domain::WindowSize;
 
-    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<TypesT, Nsamples>();
+    auto [coeffs_a_conj, coeffs_b, surface_true] = get_chirp_and_signal_and_surface<types, Nsamples>();
     constexpr size_t Ncoeffs = utils::Nsamples_to_Ncoeffs(Nsamples);
     
     // no need to double the coefficients. c2r does that for us by its design
@@ -390,30 +383,29 @@ auto fft_r2c_radix2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 
 // naive non-integer evaluation
 // compute std::exp live for each coefficient in each derivative order (Nsamples*O)
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
-    using FFTHelperT = utils::FFTHelper<TypesT, DomainT::WindowSize>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
+    using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<types::Precision>;
-    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::template construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::template construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    auto offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params<Precision>(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::template construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    auto offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params<Precision>(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::template construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, 2> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
@@ -427,13 +419,13 @@ auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_
 
     auto time_start = time_func();
 
-    Precision guessed_tau_s = 0 + 0.5 * DomainT::sample_period_s;
+    Precision guessed_tau_s = 0 + 0.5 * domain::sample_period_s;
     auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
     auto residual_s = (tau_true_s - optimal_tau_s);
-    // auto residual_mm = ConstantsT::speed_of_sound_mmps * residual_s;
+    // auto residual_mm = constants::speed_of_sound_mmps * residual_s;
     
     auto error = residual_s;
     
@@ -442,30 +434,29 @@ auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_
 
 // less naive non-integer evaluation 
 // compute std::exp live for each coefficient, but reuse for each derivative order (N)
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
-    using FFTHelperT = utils::FFTHelper<TypesT, DomainT::WindowSize>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
+    using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<types::Precision>;
-    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    auto offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params<Precision>(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    auto offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params<Precision>(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, 2> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
@@ -477,13 +468,13 @@ auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_
 
     auto time_start = time_func();
 
-    Precision guessed_tau_s = 0 + 1.5 * DomainT::sample_period_s;
+    Precision guessed_tau_s = 0 + 1.5 * domain::sample_period_s;
     auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
     auto residual_s = (tau_true_s - optimal_tau_s);
-    // auto residual_mm = ConstantsT::speed_of_sound_mmps * residual_s;
+    // auto residual_mm = constants::speed_of_sound_mmps * residual_s;
 
     auto error = residual_s;
     
@@ -492,30 +483,29 @@ auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_
 
 // even less naive non-integer evalutaion
 // compute std::exp once and tweak it for each coefficient, reused for each derivative order (1+multiplies)
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
-    using DomainT = Domain<Precision>;
-    using ConstantsT = Constants<Real, Complex>;
-    using FFTHelperT = utils::FFTHelper<TypesT, DomainT::WindowSize>;
+    using domain = Domain<Precision>;
+    using constants = Constants<Real, Complex>;
+    using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
     auto chirp_func = utils::sinc<Precision>; // utils::sinc2<types::Precision>;
-    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = DomainT::window_period_s * 0.5, .freq_hz = 1E3};
-    auto chirp = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+    auto chirp_params = utils::WaveParams<Precision>{.amplitude = 1.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 1E3};
+    auto chirp = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
     // signal
-    auto offset_s = 0.52 * DomainT::sample_period_s;
-    auto signal_params = utils::get_offset_params<Precision>(DomainT::sample_period_s, chirp_params, offset_s);
-    auto signal = FFTHelperT::construct_simple(DomainT::sample_period_s, chirp_func, signal_params);
+    auto offset_s = 0.52 * domain::sample_period_s;
+    auto signal_params = utils::get_offset_params<Precision>(domain::sample_period_s, chirp_params, offset_s);
+    auto signal = FFTHelperT::construct_simple(domain::sample_period_s, chirp_func, signal_params);
     auto tau_true_s = offset_s;
 
-    utils::CorrelationHelper<TypesT, DomainT::WindowSize, 2> correlation_helper;
-    correlation_helper.setup(chirp.coeffs, DomainT::cd_freq_hz);
+    utils::CorrelationHelper<types, domain::WindowSize, 2> correlation_helper;
+    correlation_helper.setup(chirp.coeffs, domain::cd_freq_hz);
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
@@ -527,13 +517,13 @@ auto noninteger_evaluation_v2(const TimeFuncT & time_func, PrintStreamT & print_
 
     auto time_start = time_func();
 
-    Precision guessed_tau_s = 0 + 1.5 * DomainT::sample_period_s;
+    Precision guessed_tau_s = 0 + 1.5 * domain::sample_period_s;
     auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
     auto residual_s = (tau_true_s - optimal_tau_s);
-    // auto residual_mm = ConstantsT::speed_of_sound_mmps * residual_s;
+    // auto residual_mm = constants::speed_of_sound_mmps * residual_s;
     // print_stream << "residual: " << residual_s << "s, " << residual_mm << "mm\n";
 
     auto error = residual_s;
@@ -601,10 +591,9 @@ struct StreamWrapper
 template <typename StreamT>
 StreamWrapper(bool, StreamT&) -> StreamWrapper<StreamT>;
 
-template <typename TypesT, typename TimeFuncT, typename PrintStreamT>
+template <typename types, typename TimeFuncT, typename PrintStreamT>
 void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
-    using types = TypesT;
     using Precision = typename types::precision_type;
 
     auto run_test = [&]<typename ... Args>(Args && ... args)
@@ -614,7 +603,7 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
 
     run_test("example", 
               0.0,
-             example<TypesT, TimeFuncT, PrintStreamT>
+             example<types, TimeFuncT, PrintStreamT>
             );
 
     
@@ -624,29 +613,29 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
 
     run_test("naive_c2c_live_exp", 
               max_fft_agreement_error,
-             naive_c2c_live_exp<TypesT, TimeFuncT, PrintStreamT>
+             naive_c2c_live_exp<types, TimeFuncT, PrintStreamT>
             );
 
     run_test("naive_r2c_live_exp", 
              max_fft_agreement_error,
-             naive_r2c_live_exp<TypesT, TimeFuncT, PrintStreamT>,
+             naive_r2c_live_exp<types, TimeFuncT, PrintStreamT>,
              /*coeff_norm_thresh_to_use*/ -1.0
             );
 
     run_test("naive_r2c_live_exp", 
              max_fft_agreement_error,
-             naive_r2c_live_exp<TypesT, TimeFuncT, PrintStreamT>,
+             naive_r2c_live_exp<types, TimeFuncT, PrintStreamT>,
              /*coeff_norm_thresh_to_use*/ 0.1
             );
 
     // run_test("naive_r2c_precompute_exp", 
     //          max_fft_agreement_error,
-    //          naive_r2c_precompute_exp<TypesT, TimeFuncT, PrintStreamT>
+    //          naive_r2c_precompute_exp<types, TimeFuncT, PrintStreamT>
     //         );
 
     run_test("fft_r2c_radix2", 
              max_fft_agreement_error,
-             fft_r2c_radix2<TypesT, TimeFuncT, PrintStreamT>
+             fft_r2c_radix2<types, TimeFuncT, PrintStreamT>
             );
 
 
@@ -656,15 +645,15 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
 
     run_test("noninteger_evaluation_v0", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_v0<TypesT, TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v0<types, TimeFuncT, PrintStreamT>);
 
     run_test("noninteger_evaluation_v1", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_v1<TypesT, TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v1<types, TimeFuncT, PrintStreamT>);
 
     run_test("noninteger_evaluation_v2", 
             max_correlation_peak_location_error,
-             noninteger_evaluation_v2<TypesT, TimeFuncT, PrintStreamT>);
+             noninteger_evaluation_v2<types, TimeFuncT, PrintStreamT>);
 
 }
 

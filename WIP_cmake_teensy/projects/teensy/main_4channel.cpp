@@ -100,7 +100,7 @@ void loop()
     auto run_on_channel = [&](size_t channel_index)
     {
 
-      TimeIndex tau_to_time_offset_idx = block_index * DomainT::BlockSize; // tau of 0 corresponds to a peak at this time;
+      TimeIndex tau_to_time_offset_idx = block_index * domain::BlockSize; // tau of 0 corresponds to a peak at this time;
 
       if (queue_sizes[channel_index] > 0)
       {
@@ -178,9 +178,9 @@ void loop()
           delta_ij_idx = -1 * static_cast<double>(time_j_idx - time_i_idx);
         }
         delta_ij_idx += (static_cast<double>(chirp_i.time_idx_fraction) - static_cast<double>(chirp_j.time_idx_fraction));
-        double delta_ij_s = delta_ij_idx * DomainT::sample_period_s;
+        double delta_ij_s = delta_ij_idx * domain::sample_period_s;
 
-        auto delta_ij_mm = delta_ij_s * ConstantsT::speed_of_sound_mmps;
+        auto delta_ij_mm = delta_ij_s * constants::speed_of_sound_mmps;
 
         // TODO remove me
         if (std::abs(delta_ij_s) > 0.01)

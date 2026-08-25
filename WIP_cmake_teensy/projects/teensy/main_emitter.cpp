@@ -57,11 +57,11 @@ AudioControlSGTL5000                            sgtl5000_2;
 // // chirp
 // static constexpr auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
 // constexpr utils::WaveParams chirp_params = utils::WaveParams{.amplitude = 30000.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 5E3};
-utils::FFTHelper<TypesT, DomainT::WindowSize> chirp = utils::FFTHelper<TypesT, DomainT::WindowSize>::construct_simple(DomainT::sample_period_s, chirp_func, chirp_params);
+utils::FFTHelper<types, domain::WindowSize> chirp = utils::FFTHelper<types, domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
 
-constexpr size_t NcachedAudioBuffers = DomainT::WindowSize / DomainT::BlockSize;
-using AudioBuffer = std::array<int16_t, DomainT::BlockSize>;
+constexpr size_t NcachedAudioBuffers = domain::WindowSize / domain::BlockSize;
+using AudioBuffer = std::array<int16_t, domain::BlockSize>;
 using CachedAudioBuffers = std::array<AudioBuffer, NcachedAudioBuffers>; 
 CachedAudioBuffers out_waveform_A;
 CachedAudioBuffers out_waveform_B;
