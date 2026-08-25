@@ -5,11 +5,13 @@
 #include <limits>
 #include <cmath>
 
-#include "types.hpp"
+// #include "types.hpp"
+#include "constants.hpp"
 
 namespace utils
 {
 
+    // number of coeffs for a purely real transform. N/2-1 are complex conjugates and therefore redundant
     static constexpr size_t Nsamples_to_Ncoeffs(size_t Nsamples)
     {
         return Nsamples / 2 + 1;
@@ -34,17 +36,18 @@ namespace utils
         return bits;
     };
 
-    template <size_t Nsamples>
+    template <size_t Nsamples, typename Real, typename Complex = std::complex<Real>>
     class FFT_c2c_1d
     {
         // https://kovleventer.com/blog/fft_real/
 
         public:
         constexpr static size_t Ncoeffs = Nsamples; // complex in means no redundant data
-        typedef types::array_cp<Ncoeffs> OutputT;
-        typedef types::array_p<Nsamples> InputT;
+        using OutputT = std::array<Complex, Ncoeffs>;
+        using InputT = std::array<Real, Nsamples>;
+        using ConstantsT = Constants<Real, Complex>;
 
-        types::array_cp<Ncoeffs> twiddles;
+        std::array<Complex, Ncoeffs> twiddles;
 
         private:
         static constexpr size_t n_bits = get_n_bits(Nsamples);
@@ -52,17 +55,17 @@ namespace utils
 
         public:
 
-        FFT_c2c_1d(types::Precision exponent_sign = -1)
+        FFT_c2c_1d(Real exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
-        void reset(types::Precision exponent_sign = -1.0)
+        void reset(Real exponent_sign = -1.0)
         {
             static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
             for (size_t k = 0; k < Ncoeffs; ++k)
             {
-                twiddles[k] = std::exp( exponent_sign * constants::twopij * static_cast<types::Precision>(k) / static_cast<types::Precision>(Nsamples*2));
+                twiddles[k] = std::exp( exponent_sign * ConstantsT::twopij * static_cast<Real>(k) / static_cast<Real>(Nsamples*2));
             }
 
             for (size_t i = 0; i < Ncoeffs; ++i)
@@ -71,7 +74,7 @@ namespace utils
             }
         }
 
-        void run(const types::cPrecision* input, OutputT &output)
+        void run(const Complex* input, OutputT &output)
         {
             // bit reversal of inputs for Decimation In Frequency (DIF)
             if (input != output.data())
@@ -99,7 +102,7 @@ namespace utils
         template <typename T>
         void rescale(T &arr)
         {
-            constexpr types::Precision factor = 1.0 / Nsamples;
+            constexpr Real factor = 1.0 / Nsamples;
             for (auto & element : arr)
             {
                 element *= factor;
@@ -119,7 +122,7 @@ namespace utils
             return ret;
         }
 
-        void butterfly_dit(types::cPrecision* buffer)
+        void butterfly_dit(Complex* buffer)
         {
             // taken from https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
             size_t m = 1;
@@ -146,28 +149,28 @@ namespace utils
         }
     };
 
-    template <>
-    class FFT_c2c_1d<1>
+    template <typename Real, typename Complex>
+    class FFT_c2c_1d<1, Real, Complex>
     {
         public:
         constexpr static size_t Nsamples = 1;
         constexpr static size_t Ncoeffs = Nsamples; // complex in means no redundant data
-        typedef types::array_cp<Ncoeffs> OutputT;
-        typedef types::array_p<Nsamples> InputT;
+        using OutputT = std::array<Complex, Ncoeffs>;
+        using InputT = std::array<Real, Nsamples>;
 
-        types::array_cp<Ncoeffs> twiddles; // necessary for r2c_1d<2>
+        std::array<Complex, Ncoeffs> twiddles; // necessary for r2c_1d<2>
 
-        FFT_c2c_1d(types::Precision exponent_sign = -1)
+        FFT_c2c_1d(Real exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
-        void reset(types::Precision exponent_sign = -1.0)
+        void reset(Real exponent_sign = -1.0)
         {
             twiddles[0] = 1;
         }
 
-        void run(const types::cPrecision* input, OutputT &output)
+        void run(const Complex* input, OutputT &output)
         {
             output[0] = input[0];
         }
@@ -178,28 +181,29 @@ namespace utils
         }
     };
 
-    template <size_t Nsamples>
+    template <size_t Nsamples, typename Real, typename Complex = std::complex<Real>>
     class FFT_real_1d
     {
         // https://kovleventer.com/blog/fft_real/
 
         public:
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT;
-        typedef types::array_p<Nsamples> RealsT;
+        using CoeffsT = std::array<Complex, Ncoeffs>;
+        using RealsT = std::array<Real, Nsamples>;
+        using ConstantsT = Constants<Real, Complex>;
         
         private:
-        typedef FFT_c2c_1d<Nsamples/2> FFT_c2c_1d_T;
+        using FFT_c2c_1d_T = FFT_c2c_1d<Nsamples/2, Real, Complex>;
         FFT_c2c_1d_T fft_c2c_1d;
         typename FFT_c2c_1d_T::OutputT & twiddles{fft_c2c_1d.twiddles}; // parent twiddles are identical
 
         public:
-        FFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(Real exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
-        void reset(types::Precision exponent_sign = -1)
+        void reset(Real exponent_sign = -1)
         {
             // static_assert(Nsamples > 2, "cant handle Nsamples == 1 or 2 yet");
             static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
@@ -209,7 +213,7 @@ namespace utils
         void r2c(const RealsT &input, CoeffsT &output)
         {
             typename FFT_c2c_1d_T::OutputT& complex_results = reinterpret_cast<typename FFT_c2c_1d_T::OutputT&>(output);
-            fft_c2c_1d.run(reinterpret_cast<const types::cPrecision*>(input.data()), complex_results);
+            fft_c2c_1d.run(reinterpret_cast<const Complex*>(input.data()), complex_results);
 
             //
             // NOTE this chunk down here is a bit different than the article. i have to handle i=0 
@@ -225,17 +229,17 @@ namespace utils
 
                 
                 auto Zx = (a + b_conj);
-                auto Zy = constants::j * (b_conj - a);
+                auto Zy = ConstantsT::j * (b_conj - a);
                 auto W_i = twiddles[i];
-                output[i] = types::Precision(0.5) * (Zx + W_i*Zy);
+                output[i] = Real(0.5) * (Zx + W_i*Zy);
 
                 if constexpr(dc_and_nyquest)
                 {
-                    output[Ncoeffs-1] = types::Precision(0.5) * (Zx - W_i*Zy); // nyquist freq. first element in second half of outputs
+                    output[Ncoeffs-1] = Real(0.5) * (Zx - W_i*Zy); // nyquist freq. first element in second half of outputs
                 }
                 
                 auto W_j = twiddles[j];
-                output[j] = types::Precision(0.5) * (std::conj(Zx) + W_j*std::conj(Zy));
+                output[j] = Real(0.5) * (std::conj(Zx) + W_j*std::conj(Zy));
             };
 
             flap.template operator()<true>(0, 0); // dc and nyquist terms
@@ -252,7 +256,7 @@ namespace utils
 
         void c2r(const CoeffsT &input, RealsT &output)
         {
-            typename types::array_cp<Nsamples/2>& complex_buffer = reinterpret_cast<types::array_cp<Nsamples/2>&>(output);
+            typename std::array<Complex, Nsamples/2>& complex_buffer = reinterpret_cast<std::array<Complex, Nsamples/2>&>(output);
 
             // flap.template operator()<true>(0, Ncoeffs-1); // dc and nyquist terms
             {
@@ -261,10 +265,11 @@ namespace utils
                 auto P = input[i];
                 auto Q = input[j];
                 auto W = twiddles[i];
-                auto Zx = /* types::Precision(0.5) * */ (P + Q);
-                auto Zy = /* types::Precision(0.5) * */ W * (P - Q);
-                auto Z = Zx + constants::j * Zy;
-                // auto Zm_conj = Zx - constants::j * Zy;
+                auto Zx = /* Real(0.5) * */ (P + Q);
+                auto Zy = /* Real(0.5) * */ W * (P - Q);
+                // NOTE: removing *0.5 because we need to scale the output by 2
+                auto Z = Zx + ConstantsT::j * Zy;
+                // auto Zm_conj = Zx - ConstantsT::j * Zy;
                 // auto Zm = std::conj(Zm_conj);
 
                 complex_buffer[i] = Z;
@@ -279,11 +284,12 @@ namespace utils
                 auto Q_conj = std::conj(Q); // pretend we have the redundant coeffs
                 auto W = twiddles[i];
 
-                auto Zx = /*types::Precision(0.5) * */ (P + Q_conj);
-                auto Zy = /*types::Precision(0.5) * */ W * (P - Q_conj);
+                auto Zx = /*Real(0.5) * */ (P + Q_conj);
+                auto Zy = /*Real(0.5) * */ W * (P - Q_conj);
+                // NOTE: removing *0.5 because we need to scale the output by 2
                 
-                auto Z = Zx + constants::j * Zy;
-                auto Zm_conj = Zx - constants::j * Zy;
+                auto Z = Zx + ConstantsT::j * Zy;
+                auto Zm_conj = Zx - ConstantsT::j * Zy;
                 auto Zm = std::conj(Zm_conj);
 
                 complex_buffer[i] = Z;
@@ -291,7 +297,7 @@ namespace utils
             }
             // static_assert(Nsamples % 4 == 0);
 
-            // types::array_cp<Nsamples/2> temp = complex_buffer;
+            // std::array<Complex, Nsamples/2> temp = complex_buffer;
             fft_c2c_1d.run(complex_buffer.data(), complex_buffer);
 
         }
@@ -299,7 +305,7 @@ namespace utils
         template <typename T>
         void rescale(T &arr)
         {
-            constexpr types::Precision factor = 1.0 / Nsamples; // NOTE: not multiplying by 2
+            constexpr Real factor = 1.0 / Nsamples; // NOTE: not multiplying by 2
             for (auto & element : arr)
             {
                 element *= factor;
@@ -307,23 +313,23 @@ namespace utils
         }
     };
 
-    template <>
-    class FFT_real_1d<1>
+    template <typename Real, typename Complex>
+    class FFT_real_1d<1, Real, Complex>
     {
         // https://kovleventer.com/blog/fft_real/
 
         public:
         constexpr static size_t Nsamples = 1;
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT;
-        typedef types::array_p<Nsamples> RealsT;
+        using CoeffsT = std::array<Complex, Ncoeffs>;
+        using RealsT = std::array<Real, Nsamples>;
 
-        FFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(Real exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
-        void reset(types::Precision exponent_sign = -1)
+        void reset(Real exponent_sign = -1)
         {}
 
         void r2c(const RealsT &input, CoeffsT &output)
@@ -341,23 +347,23 @@ namespace utils
         {}
     };
 
-    template <>
-    class FFT_real_1d<2>
+    template <typename Real, typename Complex>
+    class FFT_real_1d<2, Real, Complex>
     {
         // https://kovleventer.com/blog/fft_real/
 
         public:
         constexpr static size_t Nsamples = 2;
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT;
-        typedef types::array_p<Nsamples> RealsT;
+        using CoeffsT = std::array<Complex, Ncoeffs>;
+        using RealsT = std::array<Real, Nsamples>;
 
-        FFT_real_1d(types::Precision exponent_sign = -1)
+        FFT_real_1d(Real exponent_sign = -1)
         {
             reset(exponent_sign);
         }
 
-        void reset(types::Precision exponent_sign = -1)
+        void reset(Real exponent_sign = -1)
         {}
 
         void r2c(const RealsT &input, CoeffsT &output)
@@ -374,15 +380,15 @@ namespace utils
             const auto dc = input[0];
             const auto nyquist = input[1];
 
-            output[0] = /* types::Precision(0.5) * */ (dc.real() + nyquist.real());
-            output[1] = /* types::Precision(0.5) * */ (dc.real() - nyquist.real());
+            output[0] = /* Real(0.5) * */ (dc.real() + nyquist.real());
+            output[1] = /* Real(0.5) * */ (dc.real() - nyquist.real());
             // NOTE: removing *0.5 because we need to scale the output by 2
         }
 
         template <typename T>
         void rescale(T &arr)
         {
-            constexpr types::Precision factor = 1.0 / Nsamples; // NOTE: not multipyling by 2
+            constexpr Real factor = 1.0 / Nsamples; // NOTE: not multipyling by 2
             for (auto & element : arr)
             {
                 element *= factor;

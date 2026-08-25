@@ -176,7 +176,7 @@ target_link_libraries(projects_teensy_perf.elf stdc++)
 #
 # 4channel
 #
-teensy_add_executable(projects_teensy_4channel main_4channel.cpp)
+teensy_add_executable(projects_teensy_4channel main_4channel.hpp main_4channel.cpp)
 set_teensy_cxx23(projects_teensy_4channel)
 target_link_libraries(projects_teensy_4channel.elf tdoa_utils)
 teensy_target_link_libraries(projects_teensy_4channel

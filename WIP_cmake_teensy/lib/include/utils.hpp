@@ -41,44 +41,49 @@ namespace utils
         return (t != 0) ? std::sin(t) * std::sin(t) / (t * t) : 1.0;
     }
 
+    template <typename Precision>
     struct WaveParams
     {
-        types::Precision amplitude{1.0};
-        types::Precision center_s{0.0};
-        types::Precision freq_hz{1.0 / constants::twopi};
+        using ConstantsT = Constants<Precision>;
+        Precision amplitude{1.0};
+        Precision center_s{0.0};
+        Precision freq_hz{1.0 / ConstantsT::twopi};
     };
 
     // create a new set of WaveParams offset in time
-    static utils::WaveParams get_offset_params(types::Precision sample_period_s, const utils::WaveParams &chirp_params, types::Precision offset_s)
+    template <typename Precision>
+    static utils::WaveParams<Precision> get_offset_params(Precision sample_period_s, const utils::WaveParams<Precision> &chirp_params, Precision offset_s)
     {
-        types::Precision sinc_insertion_time_s = chirp_params.center_s + offset_s;
-        return utils::WaveParams{.amplitude = chirp_params.amplitude, .center_s = sinc_insertion_time_s, .freq_hz = chirp_params.freq_hz};
+        Precision sinc_insertion_time_s = chirp_params.center_s + offset_s;
+        return utils::WaveParams<Precision>{.amplitude = chirp_params.amplitude, .center_s = sinc_insertion_time_s, .freq_hz = chirp_params.freq_hz};
     }
 
-    template <typename T, typename SoundFunctionT>
-    static T generic_sound(T t, const std::vector<WaveParams> &sin_params, const std::vector<std::pair<WaveParams, /*types::*/SoundFunctionT>> &chirp_params)
+    template <typename Precision, typename SoundFunctionT>
+    static Precision generic_sound(Precision t, const std::vector<WaveParams<Precision>> &sin_params, const std::vector<std::pair<WaveParams<Precision>, SoundFunctionT>> &chirp_params)
     {
-        T ret = 0.0;
+        using ConstantsT = Constants<Precision>;
+
+        Precision ret = 0.0;
         for (const auto &param : sin_params)
         {
-            ret += param.amplitude * std::sin(param.freq_hz * constants::twopi * (t - param.center_s));
+            ret += param.amplitude * std::sin(param.freq_hz * ConstantsT::twopi * (t - param.center_s));
         }
 
         for (const auto &[param, func] : chirp_params)
         {
             if (func)
             {
-                ret += param.amplitude * func(param.freq_hz * constants::twopi * (t - param.center_s));
+                ret += param.amplitude * func(param.freq_hz * ConstantsT::twopi * (t - param.center_s));
             }
         }
 
         return ret;
     }
 
-    template <size_t N, typename SoundFunctionT>
-    static types::array_p<N> create_template(size_t start_index, types::Precision sample_period_s, const /*types::*/SoundFunctionT &func, const WaveParams &params = WaveParams())
+    template <size_t N, typename Precision, typename SoundFunctionT>
+    static std::array<Precision, N> create_template(size_t start_index, Precision sample_period_s, const SoundFunctionT &func, const WaveParams<Precision> &params = WaveParams<Precision>())
     {
-        types::array_p<N> ret;
+        std::array<Precision, N> ret;
 
         if constexpr (is_std_function_v<SoundFunctionT>)
         {
@@ -90,8 +95,8 @@ namespace utils
 
         for (size_t i = 0; i < N; ++i)
         {
-            types::Precision t = (i+start_index) * sample_period_s;
-            types::Precision omega = params.freq_hz * constants::twopi;
+            Precision t = (i+start_index) * sample_period_s;
+            Precision omega = params.freq_hz * Constants<Precision>::twopi;
             ret[i] = params.amplitude * func(omega * (t - params.center_s));
         }
 
@@ -114,7 +119,7 @@ namespace utils
     constexpr auto pow(T val)
     {
         // yes im aware this is bugged for 0^0 but i need that to be 1 anyways
-        typedef T U;
+        using U = T;
         U result{1};
         for (size_t i = 0; i < p; ++i)
         {
@@ -123,22 +128,27 @@ namespace utils
         return result;
     }
 
-    template <size_t Nsamples, size_t max_derivative_order>
+    template <typename TypesT, size_t Nsamples, size_t max_derivative_order>
     struct CorrelationHelper
     {
         constexpr static size_t NderivativeBuffers = max_derivative_order + 1;
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
-        typedef types::array_p<Nsamples> RealsT;
+        using types = TypesT;
+        using Precision = typename types::precision_type;
+        using Real = typename types::real_type;
+        using Complex = typename types::complex_type;
+        using CoeffsT = typename types::template array_c<Ncoeffs>; // elements are 2 doubles, so we need half the length
+        using RealsT = typename types::template array_r<Nsamples>;
+        using ConstantsT = Constants<Real, Complex>;
 
-        types::array_p<Ncoeffs> freqs;
-        std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_fft; // shouldnt go past the first derivative
-        std::array<types::array_cp<Ncoeffs>, NderivativeBuffers> coeffs_a_for_manual_reconstruction; // shouldnt go past the first derivative
+        typename types::template array_r<Ncoeffs> freqs;
+        std::template array<CoeffsT, NderivativeBuffers> coeffs_a_for_fft; // shouldnt go past the first derivative
+        std::template array<CoeffsT, NderivativeBuffers> coeffs_a_for_manual_reconstruction; // shouldnt go past the first derivative
 
-        types::array_cp<Ncoeffs> corr_product;
-        std::array<types::array_p<Nsamples>, NderivativeBuffers> correlation_surface; // shouldnt go past the first derivative
+        typename types::template array_c<Ncoeffs> corr_product; // temp variable
+        std::array<RealsT, NderivativeBuffers> correlation_surfaces; // shouldnt go past the first derivative
 
-        utils::FFT_real_1d<Nsamples> fft;
+        utils::FFT_real_1d<Nsamples, Real, Complex> fft;
 
         constexpr static size_t nyquist_index = Ncoeffs-1; // this is actually N/2 of the full FFT
 
@@ -150,7 +160,7 @@ namespace utils
             return tau;
         }
 
-        void setup(const CoeffsT &coeffs_a, types::Precision sample_freq_hz = 1.0)
+        void setup(const CoeffsT &coeffs_a, Precision sample_freq_hz = 1.0)
         {
             static_assert(nyquist_index == Nsamples/2, "the coeffs of an r2c transform put nyquist at the end and are N/2+1 in size. a full c2c transfrom would have N coeffs (with nyquist still at N/2)");
             static_assert(Ncoeffs != Nsamples, "assuming we are using coefficients from an r2c transform");
@@ -160,9 +170,9 @@ namespace utils
 
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
-                types::Precision freq = i * sample_freq_hz / static_cast<types::Precision>(Nsamples);
+                Real freq = i * sample_freq_hz / static_cast<Real>(Nsamples);
 
-                auto a_conj = std::conj(coeffs_a[i]);
+                Complex a_conj = std::conj(coeffs_a[i]);
 
                 if (i == Ncoeffs-1)
                 {
@@ -187,8 +197,8 @@ namespace utils
 
                 for (size_t o = 1; o < NderivativeBuffers; ++o)
                 {
-                    coeffs_a_for_fft[o][i] = coeffs_a_for_fft[o-1][i]*freq * constants::twopij;
-                    coeffs_a_for_manual_reconstruction[o][i] = coeffs_a_for_manual_reconstruction[o-1][i]*freq * constants::twopi;
+                    coeffs_a_for_fft[o][i] = coeffs_a_for_fft[o-1][i]*freq * ConstantsT::twopij;
+                    coeffs_a_for_manual_reconstruction[o][i] = coeffs_a_for_manual_reconstruction[o-1][i]*freq * ConstantsT::twopi;
                 }
 
                 // zero out the Nyquist coefficient for odd ordered derivatives. 
@@ -218,20 +228,19 @@ namespace utils
                 corr_product[i] = coeffs_a_for_fft[derivative_order][i] * B[i];
             }
     
-
-            fft.c2r(corr_product, correlation_surface[derivative_order]);
+            fft.c2r(corr_product, correlation_surfaces[derivative_order]);
         }
 
         template <size_t derivative_order, typename TauT>
         auto correlate_impl(const CoeffsT &B, /*types::Precision duration_s,*/ const TauT tau) const
         {
-            types::Precision sum(0.0);
+            Real sum(0.0);
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
                 // a_conj baked into coeffs table
                 auto b = B[i];
 
-                types::cPrecision term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(constants::twopij * freqs[i] * tau);
+                Complex term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(ConstantsT::twopij * freqs[i] * tau);
 
                 // we can get away with pulling only the real/imag parts instead of the total 
                 // complex magnitude because these calculations should produce purely real results. 
@@ -258,44 +267,38 @@ namespace utils
             return sum;
         }
 
-        template <typename IndexT>
-        auto correlate_at(const CoeffsT &B, IndexT index_or_tau) const
-        {
-            return correlate_impl<0>(B, index_or_tau);
-        }
-
         template <typename TauT, size_t... indicesT>
         auto correlate_and_derive_impl(const CoeffsT &B, const TauT tau, std::integer_sequence<size_t, indicesT...>) const
         {
-            typedef decltype(correlate_impl<0>(B, tau)) correlation_return_type;
+            using correlation_return_type = decltype(correlate_impl<0>(B, tau));
             std::array<correlation_return_type, sizeof...(indicesT)> ret;
             ((ret[indicesT] = correlate_impl<indicesT>(B, tau)), ...);
             return ret;
         }
 
-        template <size_t derivative_order, typename TauT = types::Precision>
+        template <size_t derivative_order, typename TauT = Real>
         auto correlate_and_derive_v0(const CoeffsT &B, const TauT tau) const
         {
             return correlate_and_derive_impl(B, tau, typename std::make_index_sequence<derivative_order + 1>());
         }
 
-        template <size_t derivative_order, typename TauT = types::Precision>
+        template <size_t derivative_order, typename TauT = Real>
         auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) const
         {
             constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
 
-            types::array_p<Norders> sum;
+            typename types::template array_r<Norders> sum;
             sum.fill(0.0);
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
                 // a_conj baked into coeffs table
                 auto b = B[i];
-                auto Wn = std::exp(constants::twopij * freqs[i] * tau);
+                auto Wn = std::exp(ConstantsT::twopij * freqs[i] * tau);
                 auto partial_product = b * Wn;
 
                 for (size_t o = 0; o < Norders; ++o)
                 {
-                    types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
+                    Complex term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
 
 
                     // we can get away with pulling only the real/imag parts instead of the total 
@@ -324,15 +327,15 @@ namespace utils
             return sum;
         }
 
-        template <size_t derivative_order, typename TauT = types::Precision>
+        template <size_t derivative_order, typename TauT = Real>
         auto correlate_and_derive_v2(const CoeffsT &B, const TauT tau) const
         {
             constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
 
-            types::cPrecision Wn(1,0);
-            types::cPrecision W1 = std::exp(constants::twopij * freqs[1] * tau);
+            Complex Wn(1,0);
+            Complex W1 = std::exp(ConstantsT::twopij * freqs[1] * tau);
 
-            types::array_p<Norders> sum;
+            typename types::template array_r<Norders> sum;
             sum.fill(0.0);
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
@@ -342,7 +345,7 @@ namespace utils
 
                 for (size_t o = 0; o < Norders; ++o)
                 {
-                    types::cPrecision term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
+                    Complex term_i = coeffs_a_for_manual_reconstruction[o][i] * partial_product;
 
                     // we can get away with pulling only the real/imag parts instead of the total 
                     // complex magnitude because these calculations should produce purely real results. 
@@ -373,21 +376,26 @@ namespace utils
         }
     
         
-        template <size_t derivative_order, typename TauT = types::Precision>
+        template <size_t derivative_order, typename TauT = Real>
         auto correlate_and_derive(const CoeffsT &B, const TauT tau) const
         {
             return correlate_and_derive_v2<derivative_order>(B, tau);
         }
     };
 
-    template <size_t Nsamples>
+    template <typename TypesT, size_t Nsamples>
     struct FFTHelper
     {
         constexpr static size_t Ncoeffs = Nsamples_to_Ncoeffs(Nsamples);
-        typedef types::array_cp<Ncoeffs> CoeffsT; // elements are 2 doubles, so we need half the length
-        typedef types::array_p<Nsamples> RealsT;
+        using types = TypesT;
+        using Precision = typename types::precision_type;
+        using Real = typename types::real_type;
+        using Complex = typename types::complex_type;
+        using CoeffsT = typename types::template array_c<Ncoeffs>; // elements are 2 doubles, so we need half the length
+        using RealsT = typename types::template array_r<Nsamples>;
+        using ConstantsT = Constants<Real, Complex>;
 
-        FFT_real_1d<Nsamples> fft{};
+        FFT_real_1d<Nsamples, Real, Complex> fft{};
         RealsT input{};
         CoeffsT coeffs{};
 
@@ -397,7 +405,7 @@ namespace utils
         void reset()
         {
             input.fill(0.0);
-            coeffs.fill(types::cPrecision(0.0, 0.0));
+            coeffs.fill(Complex(0.0, 0.0));
 
             fft.reset();
         }
@@ -412,16 +420,16 @@ namespace utils
         // can accept fractional index
         // inefficient if computing multiple times, just use c2r for that
         template <typename T>
-        types::Precision manually_reconstruct_at_index(T k)
+        Real manually_reconstruct_at_index(T k)
         {
-            types::cPrecision Wn(1,0);
-            types::Precision freq_1 = static_cast<types::Precision>(1) / Nsamples;
-            types::cPrecision W1 = std::exp(constants::twopij * (freq_1 * k));
+            Complex Wn(1,0);
+            Real freq_1 = static_cast<Real>(1) / Nsamples;
+            Complex W1 = std::exp(ConstantsT::twopij * (freq_1 * k));
 
-            types::Precision sum{};
+            Real sum{};
             for (size_t i = 0; i < Ncoeffs; ++i)
             {
-                types::cPrecision term_i = coeffs[i] * Wn;
+                Complex term_i = coeffs[i] * Wn;
                 if ((i > 0) && (i < Ncoeffs-1)) // can pull this check out front if -O3 isnt doing that already
                 {
                     term_i *= 2;
@@ -435,11 +443,11 @@ namespace utils
         }
 
         template <typename SoundFunctionT>
-        static FFTHelper construct_simple(types::Precision sample_period_s, const /*types::*/SoundFunctionT &chirp_func, const WaveParams &chirp_params)
+        static FFTHelper construct_simple(Real sample_period_s, const SoundFunctionT &chirp_func, const WaveParams<Precision> &chirp_params)
         {
-            utils::FFTHelper<Nsamples> chirp;
+            utils::FFTHelper<TypesT, Nsamples> chirp;
             chirp.reset();
-            chirp.input = utils::create_template<Nsamples>(0, sample_period_s, chirp_func, chirp_params);
+            chirp.input = utils::create_template<Nsamples, Precision>(0, sample_period_s, chirp_func, chirp_params);
             chirp.transform();
 
             return chirp;
@@ -447,10 +455,10 @@ namespace utils
     };
 
 
-    template <typename CallableT>
-    std::pair<types::Precision, types::Precision> newton(const CallableT &fd0_fd1_fd2, types::Precision guess_tau_s, size_t n_steps = 4)
+    template <typename Precision, typename CallableT>
+    std::pair<Precision, Precision> newton(const CallableT &fd0_fd1_fd2, Precision guess_tau_s, size_t n_steps = 4)
     {
-        types::Precision x_n = guess_tau_s;
+        Precision x_n = guess_tau_s;
         for (size_t i = 0; i < n_steps; ++i)
         {
             auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
@@ -469,16 +477,23 @@ namespace utils
         return std::make_pair(x_n, f_d0);
     };
 
-    template <typename IndexT=uint32_t, typename ValueT=float>
+
+    template <typename TypesT>
     class ExtremmaFinder
     {
         public:
+        using types = TypesT;
+        using Precision = typename types::precision_type;
+
+        using TimeIndex = typename types::time_index_type;
+        using TimeFractionalIndexT = typename types::time_fractional_index_type;
+        using CorrPeakT = typename types::corr_peak_type;
 
         struct CandidateExtremma
         {
-            IndexT time_idx{};
-            float time_idx_fraction{}; // hopefully bounded by [-1,+1] but not guaranteed
-            ValueT value{0.0};
+            TimeIndex time_idx{};
+            TimeFractionalIndexT time_idx_fraction{}; // hopefully bounded by [-1,+1] but not guaranteed
+            CorrPeakT value{0.0};
 
             void reset()
             {
@@ -486,13 +501,13 @@ namespace utils
             }
 
             // using sample_freq_hz instead of sample_period_s for precision at the cost of speed
-            types::Precision to_time_s(types::Precision sample_freq_hz) const
+            Precision to_time_s(Precision sample_freq_hz) const
             {
-                return static_cast<types::Precision>(time_idx)/sample_freq_hz + static_cast<types::Precision>(time_idx_fraction)/sample_freq_hz;
+                return static_cast<Precision>(time_idx)/sample_freq_hz + static_cast<Precision>(time_idx_fraction)/sample_freq_hz;
             }
         };
 
-        typedef std::vector<CandidateExtremma> vector_extremma;
+        using vector_extremma = std::vector<CandidateExtremma>;
 
         const vector_extremma & extremma()
         {
@@ -514,7 +529,7 @@ namespace utils
             last_f_d1_sign = 2; // impossible value, will always record first sample as a peak
         }
 
-        void prune_before(IndexT prune_time_idx)
+        void prune_before(TimeIndex prune_time_idx)
         {
             for (auto & ex : extremma_)
             {
@@ -528,7 +543,7 @@ namespace utils
         }
 
         // biased so the weaker peaks get cleared and leave the stronger ones
-        void filter_redundant(IndexT tolerance_idx)
+        void filter_redundant(TimeIndex tolerance_idx)
         {
             for (int i = extremma_.size()-1; i > 0; --i)
             {
@@ -549,7 +564,7 @@ namespace utils
         }
 
         template <size_t Nsamples, size_t max_derivative_order, size_t Ncoeffs>
-        size_t find_extremma(const CorrelationHelper<Nsamples, max_derivative_order>& correlation_helper, const types::array_cp<Ncoeffs> &B, IndexT tau_to_time_idx)
+        size_t find_extremma(const CorrelationHelper<TypesT, Nsamples, max_derivative_order>& correlation_helper, const typename types::template array_c<Ncoeffs> &B, TimeIndex tau_to_time_idx)
         {
             // define tau search bounds
             constexpr size_t idx_fh_start = Nsamples/2 + Nsamples/4; // most negative tau
@@ -558,31 +573,22 @@ namespace utils
             constexpr size_t idx_sh_stop = Nsamples/4; // most positive tau
 
             // this is an over-fancy way of saying N/4
-            constexpr int index_offset_signed = CorrelationHelper<Nsamples, max_derivative_order>::surface_index_to_tau_signed_index(idx_fh_start);
+            constexpr int index_offset_signed = CorrelationHelper<TypesT, Nsamples, max_derivative_order>::surface_index_to_tau_signed_index(idx_fh_start);
             constexpr size_t index_offset_abs = std::abs(index_offset_signed);
             static_assert(index_offset_signed == -static_cast<int>(Nsamples)/4);
             static_assert(index_offset_abs == Nsamples/4);
 
-            // equivelant to CorrelationHelper::index_to_tau(), but offset by Nsamples/4 so the return 
-            // value cant be negative. we only search a half a window in size, but its centered at the endpoints so we only need to add N/4
-            // auto index_to_tau_offset = [](size_t i) -> size_t
-            // {
-            //     size_t tau = (i >= Nsamples/2) ? (i-Nsamples + index_offset_abs) : (i + index_offset_abs); 
-            //     return tau;
-            // }
-
-
             // we want tau_index to always be positive so we can use uint64_t for time_index and 
             // tau_index. so we can force tau_index to always be positive by adding N/2 to it and 
             // subtracting N/2 here to makeup for it
-            if (tau_to_time_idx < static_cast<IndexT>(index_offset_abs)) // TODO handle this better. somehow enforce this can never happen
+            if (tau_to_time_idx < static_cast<TimeIndex>(index_offset_abs)) // TODO handle this better. somehow enforce this can never happen
             {
                 return 0;
             }
 
-            IndexT shifted_tau_to_time_idx = tau_to_time_idx - static_cast<IndexT>(index_offset_abs); // this offset added back in later with index_to_tau_offset_for_unsigned()
+            TimeIndex shifted_tau_to_time_idx = tau_to_time_idx - static_cast<TimeIndex>(index_offset_abs); // this offset added back in later with index_to_tau_offset_for_unsigned()
 
-            auto sign = [](types::Precision v)
+            auto sign = [](Precision v)
             {
                 // old, we can make it faster...
                 // return static_cast<SignT>((v > 0.0) - (v < 0.0));
@@ -596,15 +602,15 @@ namespace utils
 
             auto check_index = [&](size_t i, size_t tau_idx_shifted)
             {
-                auto f_d1 = correlation_helper.correlation_surface[1][i];
+                auto f_d1 = correlation_helper.correlation_surfaces[1][i];
                 auto f_d1_sign = sign(f_d1);
 
                 if (f_d1_sign != last_f_d1_sign)
                 {
-                    // auto tau_idx_shifted_positive = static_cast<IndexT>(correlation_helper.index_to_tau_offset(i)); // offset 0 to N/2
-                    auto f_d0 = correlation_helper.correlation_surface[0][i];
-                    auto f_d0_abs = std::abs(static_cast<ValueT>(f_d0));
-                    record_extremma_in_min_heap(CandidateExtremma{.time_idx = static_cast<IndexT>(tau_idx_shifted) + shifted_tau_to_time_idx, .value = f_d0_abs});
+                    // auto tau_idx_shifted_positive = static_cast<TimeIndex>(correlation_helper.index_to_tau_offset(i)); // offset 0 to N/2
+                    auto f_d0 = correlation_helper.correlation_surfaces[0][i];
+                    auto f_d0_abs = std::abs(static_cast<CorrPeakT>(f_d0));
+                    record_extremma_in_min_heap(CandidateExtremma{.time_idx = static_cast<TimeIndex>(tau_idx_shifted) + shifted_tau_to_time_idx, .value = f_d0_abs});
                     last_f_d1_sign = f_d1_sign;
                 }
             };
@@ -645,7 +651,7 @@ namespace utils
                 auto tau_idx_shifted = static_cast<size_t>(time_idx - shifted_tau_to_time_idx); // 0 to N/2
                 int tau_idx_signed = tau_idx_shifted - index_offset_abs; // tau from -N/4 to +N/4
 
-                types::Precision tau_index_signed_float = tau_idx_signed;
+                Precision tau_index_signed_float = tau_idx_signed;
                 auto [optimal_tau_idx, optimal_f_d0] = utils::newton(fd0_fd1_fd2, tau_index_signed_float);
                 time_idx_fraction = optimal_tau_idx - tau_index_signed_float; // overwrite
                 value = std::abs(optimal_f_d0);  // overwrite
@@ -656,7 +662,7 @@ namespace utils
         }
 
         template <typename StreamT>
-        void print(StreamT & out, types::Precision sample_period_s, IndexT subtract_this=0.0)
+        void print(StreamT & out, Precision sample_period_s, TimeIndex subtract_this=0.0)
         {
             // std::stringstream out;
             for (size_t i = 0; i < extremma_.size(); ++i)
@@ -718,9 +724,9 @@ namespace utils
     private:
         size_t n_extremma = 2 * 5 + 1; // because likely symmetry
 
-        typedef bool SignT;
+        using SignT = bool;
         SignT last_f_d1_sign{};
-        types::Precision last_tau_s{};
+        Precision last_tau_s{};
 
         vector_extremma extremma_;
         size_t count{0};
@@ -761,28 +767,24 @@ namespace utils
         }
     };
 
-    template <size_t WindowSize, size_t Nchannels=1, typename IndexT=uint32_t, typename PeakT=float>
+    template <typename TypesT, size_t WindowSize, size_t Nchannels=1>
     class Ingestor
     {
         public:
+        using types = TypesT;
+        using Precision = typename types::precision_type;
+        using TimeIndex = types::time_index_type;
 
-        typedef utils::ExtremmaFinder<IndexT, PeakT> ExtremmaFinderT;
-        typedef typename ExtremmaFinderT::vector_extremma vector_extremma;
-        typedef std::pair<IndexT, IndexT> time_bounds;
-
-        struct types {
-            using index_type = IndexT;
-            using peak_type  = PeakT;
-        };
+        using ExtremmaFinderT = utils::ExtremmaFinder<TypesT>;
+        using vector_extremma = typename ExtremmaFinderT::vector_extremma;
+        using TimeBoundsT = std::pair<TimeIndex, TimeIndex>;
 
         protected:
         static constexpr size_t BlockSize = WindowSize / 2;
 
-        // types::Precision cd_freq_hz{};      // = 44100.0;
-        // types::Precision sample_period_s{}; // = 1.0 / cd_freq_hz;
-        utils::FFTHelper<WindowSize> chirp{};
-        std::array<utils::FFTHelper<WindowSize>, Nchannels> signals{};
-        utils::CorrelationHelper<WindowSize, 2> correlation_helper{};
+        utils::FFTHelper<TypesT, WindowSize> chirp{};
+        std::array<utils::FFTHelper<TypesT, WindowSize>, Nchannels> signals{};
+        utils::CorrelationHelper<TypesT, WindowSize, 2> correlation_helper{};
         std::array<ExtremmaFinderT, Nchannels> extremma_helpers_{};
 
         public:
@@ -793,22 +795,14 @@ namespace utils
             return extremma_helpers_[channel_index];
         }
 
-        // time_bounds tau_bounds_idx()
-        // {
-        //     return time_bounds_idx(0);
-        // }
-
-        time_bounds time_bounds_idx(IndexT tau_to_time_offset_idx)
+        TimeBoundsT time_bounds_idx(TimeIndex tau_to_time_offset_idx)
         {
             return std::make_pair(tau_to_time_offset_idx  - BlockSize/2, 
                                   tau_to_time_offset_idx  + BlockSize/2);
         }
 
-        void reset(const typename utils::FFTHelper<WindowSize>::RealsT &chirp_input)
+        void reset(const typename utils::FFTHelper<TypesT, WindowSize>::RealsT &chirp_input)
         {
-            // cd_freq_hz = cd_freq_hz_in;
-            // sample_period_s = 1.0 / cd_freq_hz;
-
             chirp.reset();
             chirp.input = chirp_input;
             chirp.transform();
@@ -821,15 +815,8 @@ namespace utils
             correlation_helper.setup(chirp.coeffs);
         }
 
-        // template <size_t derivative_order, typename TauT>
-        // auto correlate_and_derive(TauT tau)
-        // {
-        //     // auto window_period_s = WindowSize * sample_period_s;
-        //     return correlation_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau);
-        // }
-
         template <typename dataInT>
-        size_t run(size_t channel_index, dataInT *src, IndexT tau_to_time_offset_idx, size_t n_extremma, bool reset_heap = true)
+        size_t run(size_t channel_index, dataInT *src, TimeIndex tau_to_time_offset_idx, size_t n_extremma, bool reset_heap = true)
         {
             if (channel_index >= Nchannels)
             {
@@ -857,7 +844,6 @@ namespace utils
             correlation_helper.template set_correlation_surface_via_fft<1>(signal.coeffs);
 
             // implement a search
-            // auto tau_s_step = sample_period_s;
             extremma_helper.resize(n_extremma);
             if (reset_heap)
             {
@@ -867,19 +853,17 @@ namespace utils
         }
     };
 
-    template <size_t WindowSize, size_t Nchannels=1, typename IndexT=uint32_t, typename PeakT=float>
-    class SignalAcquirer : public Ingestor<WindowSize, Nchannels, IndexT, PeakT>
+    template <typename TypesT, size_t WindowSize, size_t Nchannels=1>
+    class SignalAcquirer : public Ingestor<TypesT, WindowSize, Nchannels>
     {
         public:
-        struct types {
-            using index_type = IndexT;
-            using peak_type  = PeakT;
-        };
+        using types = TypesT;
+        using TimeIndex = typename types::time_index_type;
 
         static constexpr size_t nDetsForHypothesis = 3;
 
         template <typename dataInT, typename CallbackT>
-        size_t run(size_t channel_index, dataInT *src, const CallbackT & callback, IndexT tau_to_time_offset_idx, size_t n_extremma, size_t sync_period_idx, size_t sync_half_gate_idx, size_t nearby_peak_tolerance_idx)
+        size_t run(size_t channel_index, dataInT *src, const CallbackT & callback, TimeIndex tau_to_time_offset_idx, size_t n_extremma, size_t sync_period_idx, size_t sync_half_gate_idx, size_t nearby_peak_tolerance_idx)
         {
             if (channel_index >= Nchannels)
             {
@@ -889,12 +873,12 @@ namespace utils
             auto & extremma_helper = this->extremma_helpers_[channel_index];
 
             [[maybe_unused]]
-            auto n_extremma_added = Ingestor<WindowSize, Nchannels>::run(channel_index, src, tau_to_time_offset_idx, n_extremma, false);
+            auto n_extremma_added = Ingestor<TypesT, WindowSize, Nchannels>::run(channel_index, src, tau_to_time_offset_idx, n_extremma, false);
 
             const auto & extremma = extremma_helper.extremma();
 
             // prune dets that are way too old
-            IndexT window_size_idx = nDetsForHypothesis * (sync_period_idx + sync_half_gate_idx);
+            TimeIndex window_size_idx = nDetsForHypothesis * (sync_period_idx + sync_half_gate_idx);
             if (window_size_idx > 0)
             {
                 auto prune_time_idx = (tau_to_time_offset_idx > window_size_idx) ? (tau_to_time_offset_idx - window_size_idx) : 0;
@@ -916,7 +900,7 @@ namespace utils
         }
 
         template <typename CallbackT>
-        void fire_on_new_peak(size_t channel_index, const typename Ingestor<WindowSize, Nchannels>::vector_extremma & extremma, const CallbackT & callback, IndexT tau_to_time_offset_idx, size_t sync_period_idx, size_t sync_half_gate_idx)
+        void fire_on_new_peak(size_t channel_index, const typename Ingestor<TypesT, WindowSize, Nchannels>::vector_extremma & extremma, const CallbackT & callback, TimeIndex tau_to_time_offset_idx, size_t sync_period_idx, size_t sync_half_gate_idx)
         {
             // get the detection that was just added
             // only need to search the top N, even if the points just added arent in the top N
@@ -928,7 +912,7 @@ namespace utils
             }
             static_assert(nDetsForHypothesis > 0, "array size too small");
             auto [next_youngest_time_idx_lower_bound, next_youngest_time_idx_upper_bound] = this->time_bounds_idx(tau_to_time_offset_idx);
-            IndexT youngest_det_time_idx = 0;
+            TimeIndex youngest_det_time_idx = 0;
             size_t hypothesis_size = 0;
 
             auto update_time_and_gate = [&](size_t i)
@@ -981,14 +965,6 @@ namespace utils
             if (nDetsForHypothesis == hypothesis_size)
             {
                 callback(channel_index, extremma[hypothesis[0]]);
-                // std::cout << "fire callback!\n";
-                // std::stringstream ss;
-                // for (size_t i = 0; i < hypothesis_size; ++i)
-                // {
-                //     const auto & det = extremma[hypothesis[i]];
-                //     ss <<  i << ")" << " time_s: " << det.time_s << " value: " << det.value<< " id: " << det.id << "\n";
-                // }
-                // std::cout << ss.str();
             }
         }
 

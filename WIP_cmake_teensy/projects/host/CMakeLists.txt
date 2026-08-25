@@ -15,7 +15,7 @@ add_executable(projects_host_test main_test.cpp)
 target_link_libraries(projects_host_test PRIVATE
     tdoa_utils
     fftw3 # TODO add flags to pick one of these
-    # fftw3f # TODO add flags to pick one of these
+    fftw3f # TODO add flags to pick one of these
     Eigen3::Eigen
     GTest::gtest_main
 )

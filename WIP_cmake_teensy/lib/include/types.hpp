@@ -6,17 +6,20 @@
 #include <cstdint>
 #include <functional>
 
-namespace types
+template <typename Precision, typename TimeIndex, typename CorrPeakT = Precision>
+struct Types
 {
+    using precision_type = Precision;
+    using real_type = Precision;
+    using complex_type = std::complex<Precision>;
 
-    typedef double Precision;
-    typedef std::complex<Precision> cPrecision;
+    using time_index_type = TimeIndex;
+    using time_fractional_index_type = float; // no reason to make this bigger
+    using corr_peak_type = CorrPeakT;
 
     template <size_t N>
-    using array_p = std::array<Precision, N>;
+    using array_r = std::array<real_type, N>;
 
     template <size_t N>
-    using array_cp = std::array<cPrecision, N>;
-
-    // typedef std::function<types::Precision(types::Precision)> SoundFunctionT;
-}
+    using array_c = std::array<complex_type, N>;
+};
