@@ -109,7 +109,7 @@ auto get_chirp_and_signal_and_surface()
 
             Real freq = (output_index * i) / Real(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
+            Complex term_i = a_conj * b * std::polar(Real(1), constants::twopi * freq);
 
             sum += term_i.real();
         }
@@ -190,7 +190,7 @@ auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 
             Real freq = output_index * i / static_cast<Real>(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
+            Complex term_i = a_conj * b * std::polar(Real(1), constants::twopi * freq);
 
             sum += term_i.real();
         }
@@ -263,7 +263,7 @@ auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 
             Real freq = output_index * i / Real(domain::WindowSize);
 
-            Complex term_i = a_conj * b * std::exp(constants::twopij * freq);
+            Complex term_i = a_conj * b * std::polar(Real(1), constants::twopi * freq);
 
             sum += term_i.real();
         }
@@ -312,7 +312,7 @@ auto naive_r2c_precompute_exp(const TimeFuncT & time_func, PrintStreamT & print_
         {
             Real freq = (output_index * i) / Real(domain::WindowSize);
             auto a_conj = coeffs_a_conj[i];
-            Wn[output_index][i] = a_conj * std::exp(constants::twopij * freq);
+            Wn[output_index][i] = a_conj * std::polar(Real(1), constants::twopi * freq);
         }
     }
 

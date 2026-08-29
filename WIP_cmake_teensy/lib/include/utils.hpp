@@ -239,7 +239,7 @@ namespace utils
                 // a_conj baked into coeffs table
                 auto b = B[i];
 
-                Complex term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::exp(constants::twopij * freqs[i] * tau);
+                Complex term_i = coeffs_a_for_manual_reconstruction[derivative_order][i] * b * std::polar(Real(1), constants::twopi * freqs[i] * tau);
 
                 // we can get away with pulling only the real/imag parts instead of the total 
                 // complex magnitude because these calculations should produce purely real results. 
@@ -292,7 +292,7 @@ namespace utils
             {
                 // a_conj baked into coeffs table
                 auto b = B[i];
-                auto Wn = std::exp(constants::twopij * freqs[i] * tau);
+                auto Wn = std::polar(Real(1), constants::twopi * freqs[i] * tau);
                 auto partial_product = b * Wn;
 
                 for (size_t o = 0; o < Norders; ++o)
@@ -332,7 +332,7 @@ namespace utils
             constexpr size_t Norders = derivative_order + 1; // 0th order still does orig function
 
             Complex Wn(1,0);
-            Complex W1 = std::exp(constants::twopij * freqs[1] * tau);
+            Complex W1 = std::polar(Real(1), constants::twopi * freqs[1] * tau);
 
             typename types::template array_r<Norders> sum;
             sum.fill(0.0);
@@ -422,7 +422,7 @@ namespace utils
         {
             Complex Wn(1,0);
             Real freq_1 = static_cast<Real>(1) / Nsamples;
-            Complex W1 = std::exp(constants::twopij * (freq_1 * k));
+            Complex W1 = std::polar(Real(1), constants::twopi * (freq_1 * k));
 
             Real sum{};
             for (size_t i = 0; i < Ncoeffs; ++i)

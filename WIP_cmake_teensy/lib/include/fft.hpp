@@ -65,7 +65,7 @@ namespace utils
             static_assert((Nsamples >= 2) && (Nsamples & (Nsamples-1))==0, "FFT can only be performed on window sizes that are powers of 2");
             for (size_t k = 0; k < Ncoeffs; ++k)
             {
-                twiddles[k] = std::exp( exponent_sign * constants::twopij * static_cast<Real>(k) / static_cast<Real>(Nsamples*2));
+                twiddles[k] = std::polar(Real(1), exponent_sign * constants::twopi * static_cast<Real>(k) / static_cast<Real>(Nsamples*2));
             }
 
             for (size_t i = 0; i < Ncoeffs; ++i)
