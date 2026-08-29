@@ -409,11 +409,9 @@ auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_
 
     auto correlate_and_derive = [&]<size_t derivative_order>(auto tau)
     {
-        return correlation_helper.template correlate_and_derive<derivative_order>(signal.coeffs, tau);
+        return correlation_helper.template correlate_and_derive_v0<derivative_order>(signal.coeffs, tau);
     };
 
-    // auto fd0_fd1 = [&](auto tau)
-    // { return correlate_and_derive.template operator()<1>(tau); };
     auto fd0_fd1_fd2 = [&](auto tau)
     { return correlate_and_derive.template operator()<2>(tau); };
 

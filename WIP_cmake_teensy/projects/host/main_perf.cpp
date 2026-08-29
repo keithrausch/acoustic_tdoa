@@ -17,7 +17,7 @@ int main()
     // perf::NullStream type available too
 
     
-    constexpr size_t n_trials = 10;
+    constexpr size_t n_trials = 100;
 
     print_stream << "DOUBLE:\n";
     using Types_d = Types<double, uint32_t, float>;
@@ -25,7 +25,7 @@ int main()
 
     print_stream << "\n\n";
     
-    print_stream << "FLOAT:\n";
-    using Types_f = Types<float, uint32_t, float>;
-    perf::run_performance_suite<Types_f>(n_trials, time_func, print_stream);
+    // print_stream << "FLOAT:\n";
+    // using Types_f = Types<float, uint32_t, float>;
+    // perf::run_performance_suite<Types_f>(n_trials, time_func, print_stream);
 }
