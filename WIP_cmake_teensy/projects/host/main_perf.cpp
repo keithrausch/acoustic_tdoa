@@ -25,7 +25,7 @@ int main()
 
     print_stream << "\n\n";
     
-    // print_stream << "FLOAT:\n";
-    // using Types_f = Types<float, uint32_t, float>;
-    // perf::run_performance_suite<Types_f>(n_trials, time_func, print_stream);
+    print_stream << "FLOAT:\n";
+    using Types_f = Types<float, uint32_t, float>;
+    perf::run_performance_suite<Types_f>(n_trials, time_func, print_stream);
 }

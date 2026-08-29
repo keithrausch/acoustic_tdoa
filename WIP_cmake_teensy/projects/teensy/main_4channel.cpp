@@ -107,7 +107,7 @@ void loop()
         auto src_ptr = queues_in[channel_index].readBuffer();
 
         auto start_us = micros();
-        auto n_extremma_added = acquirer.run(channel_index, src_ptr, on_chirp, tau_to_time_offset_idx, n_extremma, sync_period_idx, sync_half_gate_idx, nearby_peak_tolerance_idx);
+        [[maybe_unused]] auto n_extremma_added = acquirer.run(channel_index, src_ptr, on_chirp, tau_to_time_offset_idx, n_extremma, sync_period_idx, sync_half_gate_idx, nearby_peak_tolerance_idx);
         auto stop_us = micros();
         auto delta_us = stop_us - start_us;
 

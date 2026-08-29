@@ -452,27 +452,29 @@ namespace utils
         }
     };
 
-
-    template <typename Precision, typename CallableT>
-    std::pair<Precision, Precision> newton(const CallableT &fd0_fd1_fd2, Precision guess_tau_s, size_t n_steps = 4)
+    template <typename Precision>
+    struct NewtonSolver
     {
-        Precision x_n = guess_tau_s;
-        for (size_t i = 0; i < n_steps; ++i)
+        struct Solution
         {
-            auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
-            auto update = f_d1 / f_d2;
-            // std::cout << "update: " << update << "\n";
-            // double stopping_thresh = std::numeric_limits<double>::epsilon() * f_d1.real();
-            // if (std::abs(update) < stopping_thresh)
-            // {
-            //     break;
-            // }
-            x_n = x_n - update;
-            // eval_and_print(x_n);
-        }
+            Precision x_final{};
+            Precision f_at_x_final{};
+        };
 
-        auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
-        return std::make_pair(x_n, f_d0);
+        template <typename CallableT>
+        static Solution solve(const CallableT &fd0_fd1_fd2, Precision guess_tau_s, size_t n_steps = 4)
+        {
+            Precision x_n = guess_tau_s;
+            for (size_t i = 0; i < n_steps; ++i)
+            {
+                auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
+                auto update = f_d1 / f_d2;
+                x_n = x_n - update;
+            }
+
+            auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
+            return Solution{.x_final=x_n, .f_at_x_final=f_d0};
+        }
     };
 
 
@@ -649,7 +651,7 @@ namespace utils
                 int tau_idx_signed = tau_idx_shifted - index_offset_abs; // tau from -N/4 to +N/4
 
                 Precision tau_index_signed_float = tau_idx_signed;
-                auto [optimal_tau_idx, optimal_f_d0] = utils::newton(fd0_fd1_fd2, tau_index_signed_float);
+                auto [optimal_tau_idx, optimal_f_d0] = utils::NewtonSolver<Precision>::solve(fd0_fd1_fd2, tau_index_signed_float);
                 time_idx_fraction = optimal_tau_idx - tau_index_signed_float; // overwrite
                 value = std::abs(optimal_f_d0);  // overwrite
                 ++n_extremma_added;
@@ -985,6 +987,45 @@ namespace utils
         }
     
         return ans;
+    }
+
+    template <size_t N>
+    constexpr auto combinations_of_N_choose_2()
+    {
+        constexpr size_t nCr_ = nCr(N, 2);
+        std::array<std::pair<size_t, size_t>, nCr_> ret;
+        size_t ret_index = 0;
+        for (size_t i = 0; i < N-1; ++i)
+        {
+            for (size_t j = i+1; j < N; ++j)
+            {
+                ret[ret_index++] = std::make_pair(i, j);
+            }
+        }
+
+        return ret;
+    }
+
+    template <size_t GroupSize, size_t NumSets >
+    constexpr auto sets_of_combinations_of_N_choose_2()
+    {
+        constexpr size_t nCr_ = nCr(GroupSize, 2);
+        std::array<std::pair<size_t, size_t>, nCr_*NumSets> ret;
+
+        constexpr auto impl = combinations_of_N_choose_2<GroupSize>();
+        
+        size_t ret_index = 0;
+        for (size_t i = 0; i < NumSets; ++i)
+        {
+            for (const auto [a, b] : impl)
+            {
+                ret[ret_index].first = a+i*GroupSize;
+                ret[ret_index].second = b+i*GroupSize;
+                ++ret_index;
+            }
+        }
+
+        return ret;
     }
 }
 

@@ -200,7 +200,7 @@ auto naive_c2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 
     auto time_stop = time_func();
 
-    auto error = get_max_abs_error(surface, surface_true);
+    auto error = get_max_abs_error(surface, surface_true) / Nsamples; // fft is un-normalized
     
     return PerfResults{.time_delta=(time_stop - time_start), .error = error};
 }
@@ -273,7 +273,7 @@ auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
 
     auto time_stop = time_func();
     
-    auto error = get_max_abs_error(surface, surface_true);
+    auto error = get_max_abs_error(surface, surface_true) / Nsamples; // fft is un-normalized
     
     return PerfResults{.time_delta=(time_stop - time_start), .error = error};
 }
@@ -336,7 +336,7 @@ auto naive_r2c_precompute_exp(const TimeFuncT & time_func, PrintStreamT & print_
 
     auto time_stop = time_func();
 
-    auto error = get_max_abs_error(surface, surface_true);
+    auto error = get_max_abs_error(surface, surface_true) / Nsamples; // fft is un-normalized
     
     return PerfResults{.time_delta=(time_stop - time_start), .error = error};
 }
@@ -349,7 +349,6 @@ auto fft_r2c_radix2(const TimeFuncT & time_func, PrintStreamT & print_stream)
     using Real = typename types::real_type;
     using Complex = typename types::complex_type;
     using domain = Domain<Precision>;
-    using constants = Constants<Real, Complex>;
 
     constexpr size_t Nsamples = domain::WindowSize;
 
@@ -376,7 +375,7 @@ auto fft_r2c_radix2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 
     auto time_stop = time_func();
 
-    auto error = get_max_abs_error(surface, surface_true);
+    auto error = get_max_abs_error(surface, surface_true) / Nsamples; // fft is un-normalized
     
     return PerfResults{.time_delta=(time_stop - time_start), .error = error};
 }
@@ -387,10 +386,7 @@ template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     using Precision = typename types::precision_type;
-    using Real = typename types::real_type;
-    using Complex = typename types::complex_type;
     using domain = Domain<Precision>;
-    using constants = Constants<Real, Complex>;
     using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
@@ -418,7 +414,7 @@ auto noninteger_evaluation_v0(const TimeFuncT & time_func, PrintStreamT & print_
     auto time_start = time_func();
 
     Precision guessed_tau_s = 0 + 0.5 * domain::sample_period_s;
-    auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
+    auto [optimal_tau_s, optimal_value] = utils::NewtonSolver<Precision>::solve(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
@@ -436,10 +432,7 @@ template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     using Precision = typename types::precision_type;
-    using Real = typename types::real_type;
-    using Complex = typename types::complex_type;
     using domain = Domain<Precision>;
-    using constants = Constants<Real, Complex>;
     using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
@@ -467,7 +460,7 @@ auto noninteger_evaluation_v1(const TimeFuncT & time_func, PrintStreamT & print_
     auto time_start = time_func();
 
     Precision guessed_tau_s = 0 + 1.5 * domain::sample_period_s;
-    auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
+    auto [optimal_tau_s, optimal_value] = utils::NewtonSolver<Precision>::solve(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
@@ -485,10 +478,7 @@ template <typename types, typename TimeFuncT, typename PrintStreamT>
 auto noninteger_evaluation_v2(const TimeFuncT & time_func, PrintStreamT & print_stream)
 {
     using Precision = typename types::precision_type;
-    using Real = typename types::real_type;
-    using Complex = typename types::complex_type;
     using domain = Domain<Precision>;
-    using constants = Constants<Real, Complex>;
     using FFTHelperT = utils::FFTHelper<types, domain::WindowSize>;
 
     // chirp
@@ -516,7 +506,7 @@ auto noninteger_evaluation_v2(const TimeFuncT & time_func, PrintStreamT & print_
     auto time_start = time_func();
 
     Precision guessed_tau_s = 0 + 1.5 * domain::sample_period_s;
-    auto [optimal_tau_s, optimal_value] = utils::newton(fd0_fd1_fd2, guessed_tau_s);
+    auto [optimal_tau_s, optimal_value] = utils::NewtonSolver<Precision>::solve(fd0_fd1_fd2, guessed_tau_s);
 
     auto time_stop = time_func();
 
@@ -605,7 +595,7 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
             );
 
     
-    Precision max_fft_agreement_error = 1E-6;
+    Precision max_fft_agreement_error = std::is_same_v<Precision, float> ? 1E-3f : 1E-6;
 
     print_stream << "#\n# benchmarks for evaluating the discrete fourier transform (DFT) at integer locations:\n#\n";
 
@@ -639,7 +629,7 @@ void run_performance_suite(size_t n_trials, const TimeFuncT & time_func, PrintSt
 
     print_stream << "#\n# benchmarks for evaluating the discrete fourier transform (DFT) at non-integer locations:\n#\n";
 
-    Precision max_correlation_peak_location_error = 1E-6;
+    Precision max_correlation_peak_location_error = std::is_same_v<Precision, float> ? 1E-6f : 1E-6;
 
     run_test("noninteger_evaluation_v0", 
             max_correlation_peak_location_error,

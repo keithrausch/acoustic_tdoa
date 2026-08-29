@@ -49,14 +49,6 @@ AudioControlSGTL5000                            sgtl5000_1;
 AudioControlSGTL5000                            sgtl5000_2;
 // GUItool: end automatically generated code
 
-// constexpr size_t n_blocks_for_chirp_cycle = 344/2;
-// 
-// constexpr uint32_t chirp_period_us = n_blocks_for_chirp_cycle*domain::block_period_s*1E6;
-// 
-// 
-// // chirp
-// static constexpr auto chirp_func = utils::sinc<types::Precision>; // utils::sinc2<types::Precision>;
-// constexpr utils::WaveParams chirp_params = utils::WaveParams{.amplitude = 30000.0, .center_s = domain::window_period_s * 0.5, .freq_hz = 5E3};
 utils::FFTHelper<types, domain::WindowSize> chirp = utils::FFTHelper<types, domain::WindowSize>::construct_simple(domain::sample_period_s, chirp_func, chirp_params);
 
 
