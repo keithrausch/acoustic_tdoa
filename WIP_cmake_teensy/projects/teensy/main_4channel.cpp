@@ -4,8 +4,31 @@
 
 void setup()
 {
-    Serial.begin(serial_baud);
-    Serial.println("starting...");
+    // serial setup
+    if (verbose)
+    {
+      Serial.begin(serial_baud);
+      Serial.println("starting...");
+    }
+
+    // ethernet hardware / udp setup
+    if (!Ethernet.begin(mac.begin(), teensy_ip, gateway, dns, subnet))
+    {
+        Serial.println("Ethernet.begin failed");
+    }
+    Ethernet.setLocalIP(teensy_ip);
+    Ethernet.setSubnetMask(subnet);
+    Ethernet.setGatewayIP(gateway);
+
+    while (!Ethernet.linkStatus())
+    {
+        if (verbose)
+        {
+          Serial.println("Waiting for link...");
+        }
+        delay(100);
+    }
+    udp.begin(udp_port_local);
 
     // reset our own code
     acquirer.reset(chirp.input);
@@ -23,6 +46,9 @@ void setup()
     AudioMemory(1024);
 
     AudioNoInterrupts(); // turn off interrupts for multi-parameter changes
+
+    auto session_id = trng_random();
+    udp_audio_tool.set_session_id(udp_sync, session_id, msg_type_audio_stream);
 
     // Enable the audio shield, select input, and enable output
     sgtl5000_1.setAddress(LOW);
@@ -76,7 +102,7 @@ void loop()
         serial_stream << "us (EMA)\n";
       }
 
-      Serial.print("block_index");
+      Serial.print("block_index ");
       Serial.println(block_index);
     }
 
@@ -120,7 +146,8 @@ void loop()
     };
 
     // figure out how many elements we can chew from each input queue
-    int Nchew = 2; // max chew amount
+    int Nchew_max = 2;
+    int Nchew = Nchew_max; // max chew amount
     for (size_t c = 0; c < Nchannels; ++c)
     {
       Nchew = std::min(Nchew, queue_sizes[c]);
@@ -137,7 +164,8 @@ void loop()
       ++block_index;
     }
 
-    std::array<int, Nchannels> manual_index_offsets{0, 0, 0, 0};
+    std::array<int, Nchannels> manual_index_offsets;
+    manual_index_offsets.fill(0);
 
     // now process every combination of microphones
     bool printed_any = false;
@@ -205,5 +233,20 @@ void loop()
     if (printed_any)
     {
       serial_stream << "\n";
+    }
+
+    // send audio over udp
+    if (udp_audio_tool.available())
+    {
+      auto & buffers = udp_audio_tool.getBuffers();
+      for (size_t i = 0; i < Nchannels; ++i)
+      {
+        auto & buffer = buffers[i];
+        auto src_ptr = reinterpret_cast<uint8_t*>(&buffer);
+        auto n_bytes = sizeof(buffer);
+        udp.send(receiver_ip, udp_port_receiver, src_ptr, n_bytes);
+      }
+
+      udp_audio_tool.clearReady();
     }
 }

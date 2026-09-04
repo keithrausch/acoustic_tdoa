@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 
 # project(projects_teensy_ethernet_sandbox C CXX ASM)
 
@@ -143,20 +143,6 @@ endfunction()
 # executables
 #
 #
-
-#
-# ethernet sandbox
-#
-teensy_add_executable(projects_teensy_ethernet_sandbox main_ethernet.cpp)
-set_teensy_cxx23(projects_teensy_ethernet_sandbox)
-teensy_target_link_libraries(projects_teensy_ethernet_sandbox
-    cores
-    SPI
-    QNEthernet
-)
-# set(CMAKE_EXE_LINKER_FLAGS "--specs=nano.specs" CACHE INTERNAL "") already provided by teensy-cmake-macros?
-target_link_libraries(projects_teensy_ethernet_sandbox.elf stdc++)
-
 
 #
 # perf
