@@ -238,7 +238,10 @@ auto time_stop = time_func();
 \begin{frame}[fragile]{Coarse Approach 4}
 	Compute correlation surface using $Nsamples=256$ complex coefficients by exploiting conjugate symmetry. precompute twiddles. $O(n^2)$
 	
-	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=10 \color{yellow!30}\fi
+		}]
 auto time_start = time_func();
 
 constexpr size_t Noutputs_used = Nsamples/2;
