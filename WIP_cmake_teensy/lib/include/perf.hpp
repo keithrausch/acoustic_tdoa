@@ -256,7 +256,7 @@ auto naive_r2c_live_exp(const TimeFuncT & time_func, PrintStreamT & print_stream
     for (size_t output_index = 0; output_index < Noutputs_used; ++output_index)
     {
         Real sum(0.0);
-        for (size_t i = 0; i < Ncoeffs; ++i)
+        for (size_t i = 0; i < Ncoeffs_to_multiply; ++i)
         {
             auto a_conj = coeffs_a_conj[i];
             auto b = coeffs_b[i];
