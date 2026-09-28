@@ -18,7 +18,8 @@ using namespace qindesign::network;
 // global config
 //
 constexpr size_t Nchannels = 4;
-constexpr bool verbose = false;
+constexpr bool verbose = true;
+constexpr bool do_udp = !verbose;
 constexpr uint32_t serial_baud = 115200;
 uint32_t next_tlm_time_us = 1*1E6;
 constexpr uint32_t tlm_period_us = 5.0*1E6;

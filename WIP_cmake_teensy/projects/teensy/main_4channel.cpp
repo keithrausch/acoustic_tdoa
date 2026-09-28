@@ -12,23 +12,29 @@ void setup()
     }
 
     // ethernet hardware / udp setup
-    if (!Ethernet.begin(mac.begin(), teensy_ip, gateway, dns, subnet))
+    if (do_udp)
     {
-        Serial.println("Ethernet.begin failed");
-    }
-    Ethernet.setLocalIP(teensy_ip);
-    Ethernet.setSubnetMask(subnet);
-    Ethernet.setGatewayIP(gateway);
-
-    while (!Ethernet.linkStatus())
-    {
+      if (!Ethernet.begin(mac.begin(), teensy_ip, gateway, dns, subnet))
+      {
         if (verbose)
         {
-          Serial.println("Waiting for link...");
+          Serial.println("Ethernet.begin failed");
         }
-        delay(100);
+      }
+      Ethernet.setLocalIP(teensy_ip);
+      Ethernet.setSubnetMask(subnet);
+      Ethernet.setGatewayIP(gateway);
+    
+      while (!Ethernet.linkStatus())
+      {
+          if (verbose)
+          {
+            Serial.println("Waiting for link...");
+          }
+          delay(100);
+      }
+      udp.begin(udp_port_local);
     }
-    udp.begin(udp_port_local);
 
     // reset our own code
     acquirer.reset(chirp.input);
@@ -236,7 +242,7 @@ void loop()
     }
 
     // send audio over udp
-    if (udp_audio_tool.available())
+    if (do_udp && udp_audio_tool.available())
     {
       auto & buffers = udp_audio_tool.getBuffers();
       for (size_t i = 0; i < Nchannels; ++i)
