@@ -1,0 +1,335 @@
+
+%\section{Naive Approach}
+
+%\begin{frame}{Diagonal Equation Annotation}
+%	
+%	% Define an explanation node style
+%	\tikzstyle{annot} = [font=\small, text=red, align=left]
+%	
+%	\begin{equation*}
+%		% Mark a specific part of your equation using \tikzmarknode
+%		\tikzmarknode{termA}{A} + B = C
+%	\end{equation*}
+%	
+%	\begin{tikzpicture}[overlay, remember picture]
+%		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+%		\draw[->, thick, red] (termA.south west) -- ++(-0.5cm, -0.1cm) 
+%		node[annot, below left] {Diagonal explanation text here};
+%	\end{tikzpicture}
+%	
+%\end{frame}
+
+\begin{frame}{Coarse Approach 1}
+	\vspace{-0.5cm}
+	\begin{align*}
+		\begin{bNiceMatrix}
+			x[0]\\
+			x[1]\\
+			x[2]\\
+			\vdots
+		\end{bNiceMatrix} &=
+		\begin{bmatrix}
+			1 & 1 & 1 & \cdots & 1\\
+			1 & e^{i\frac{2\pi}{N}} & e^{i\frac{4\pi}{N}} & \cdots & e^{i\frac{2\pi(N-1)}{N}}\\
+			1 & e^{i\frac{4\pi}{N}} & e^{i\frac{8\pi}{N}} & \cdots & e^{i\frac{4\pi(N-1)}{N}}\\
+			\vdots & \vdots & \vdots & \ddots & \vdots\\
+			1 & e^{i\frac{2\pi(N-1)}{N}} &
+			e^{i\frac{4\pi(N-1)}{N}} &
+			\cdots &
+			e^{i\frac{2\pi(N-1)^2}{N}}
+		\end{bmatrix}
+		\begin{bNiceMatrix}
+		X[0]\\
+		X[1]\\
+		X[2]\\
+		\vdots\\
+		X[N-1]
+		\end{bNiceMatrix}
+	\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Coarse Approach 1}
+	Compute correlation surface from $Nsamples=256$ complex coefficients. Live-compute twiddles. $O(n^2)$ complex multiplications
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+auto [coeffs_a_conj, coeffs_b] = // 256 coefficients each
+array_r<Nsamples> surface;
+
+auto time_start = time_func();
+// loop is N*N = 256*256 = 65536 multiplications
+for (size_t out_idx = 0; out_idx < Nsamples; ++out_idx)
+{
+	Real sum(0.0);
+	for (size_t i = 0; i < coeffs_a_conj.size(); ++i)
+	{
+		auto a_conj = coeffs_a_conj[i];
+		auto b = coeffs_b[i];
+		
+		Real freq = output_index * i / Real(domain::WindowSize);
+		Complex term_i = a_conj * b * std::exp(twopi * freq);
+		sum += term_i.real();
+	}
+	surface[out_idx] = sum;
+}
+auto time_stop = time_func();
+	\end{lstlisting}
+	
+\end{frame}
+
+\begin{frame}{Results}
+	\coarsetable{1}{1}
+\end{frame}
+
+
+\begin{frame}{Coarse Approach 2}
+	\vspace{-0.5cm}
+	\begin{align*}
+		\begin{bNiceMatrix}
+			x[0]\\
+			x[1]\\
+			x[2]\\
+			\vdots
+		\end{bNiceMatrix} &=
+		\begin{bNiceMatrix}
+			\Block[fill=red!20]{9-1}{} 1 & 1 & \cdots & \Block[fill=red!20]{9-1}{} 1 & \Block[fill=yellow!20]{9-2}{} \cdots & 1\\
+			1 & e^{i\frac{2\pi}{N}} & \cdots & -1 & \cdots & e^{i\frac{2\pi(N-1)}{N}}\\
+			1 & e^{i\frac{4\pi}{N}} & \cdots & 1 & \cdots & e^{i\frac{4\pi(N-1)}{N}}\\
+			\vdots & \vdots & \vdots & \vdots & \ddots & \vdots\\
+			1 & e^{i\frac{2\pi(\frac{N}{2}-1)}{N}} & \cdots & -1 & \cdots & e^{i\frac{2\pi(\frac{N}{2}-1)(N-1)}{N}}\\
+			1 & e^{i\frac{2\pi(\frac{N}{2})}{N}} & \cdots & 1 & \cdots &  e^{i\frac{2\pi(\frac{N}{2})(N-1)}{N}}\\
+			1 & e^{i\frac{2\pi(\frac{N}{2}+1)}{N}} & \cdots & -1 & \cdots & e^{i\frac{2\pi(\frac{N}{2}+1)(N-1)}{N}}\\
+			\vdots & \vdots & \vdots & \vdots & \ddots & \vdots\\
+			1  &  e^{i\frac{2\pi(N-1)}{N}} &\cdots & -1 & \cdots & e^{i\frac{2\pi(N-1)^2}{N}}
+		\end{bNiceMatrix}
+		\begin{bNiceMatrix}
+			\Block[fill=red!20]{1-1}{} \tikzmarknode{termDC}{X[0]}\\
+			X[1]\\
+			X[2]\\
+			\vdots\\
+			X[\frac{N}{2}-1] \\
+			\Block[fill=red!20]{1-1}{} \tikzmarknode{termNY}{X[\frac{N}{2}]} \\
+			\Block[fill=yellow!20]{3-1}{} X[\frac{N}{2}+1]\\
+			\vdots \\
+			\tikzmarknode{termNeg}{X[N-1]}
+		\end{bNiceMatrix}
+	\end{align*}
+	
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (termDC.west) -- ++(-0.5cm, 1.26cm) 
+		node[annot, left] {DC Coefficient (freq=0 or +N or -N)};
+	\end{tikzpicture}
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (termNY.west) -- ++(-1.0cm, 3.5cm) 
+		node[annot, left] {Nyquist Coefficient (freq=+N/2 or -N/2)};
+	\end{tikzpicture}
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (termNeg.south) -- ++(-0.1cm, -1.0cm) 
+		node[annot, left] {Coefficients for negative freqs. complex conjugates of the positive freqs};
+	\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Coarse Approach 2}
+	Exploit conjugate symmetry to compute correlation surface using $\frac{Nsamples}{2}+1=129$ complex coefficients . Live-compute twiddles. $O(n^2)$ complex multiplications. Multiply the terms with conjugate symmetry by 2 and take their real component since $z + \bar{z} = 2\operatorname{Re}(z) $
+	
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+auto [coeffs_a_conj, coeffs_b] = // 129 coefficients each
+array_r<Nsamples> surface;
+		
+for (size_t i=1; i < coeffs_a_conj.size()-1; ++i)
+{
+	coeffs_a_conj[i] *= 2;
+}
+		
+auto time_start = time_func();
+// same nested loop structure. 
+// Now N*(N/2+1) = 256*129 = 33024 mults
+auto time_stop = time_func();
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}{Results}
+	\coarsetable{1}{2}
+\end{frame}
+
+
+\begin{frame}{Coarse Approach 3}
+	\vspace{-0.5cm}
+	\begin{align*}
+		\begin{bNiceMatrix}
+			x[0]\\
+			x[1]\\
+			x[2]\\
+			\vdots
+		\end{bNiceMatrix} &=
+		\begin{bNiceMatrix}
+			1 & 2 & 2 & \Block[fill=red!20]{9-1}{} \cancel{\cdots} & 1 & \cancel{\cdots} \\
+			1 & 2e^{i\frac{2\pi}{N}} & 2e^{i\frac{4\pi}{N}} & \cancel{\cdots} & -1 & \cancel{\cdots} \\
+			1 & 2e^{i\frac{4\pi}{N}} & 2e^{i\frac{8\pi}{N}} & \cancel{\cdots} & 1 & \cancel{\cdots} \\
+			\vdots & \vdots & \vdots & \vdots & \ddots & \vdots\\
+			1 & 2e^{i\frac{2\pi(\frac{N}{2}-1)}{N}} & 2e^{i\frac{4\pi(\frac{N}{2}-1)}{N}} & \cancel{\cdots} & -1 & \cancel{\cdots} \\
+			1 & 2e^{i\frac{2\pi(\frac{N}{2})}{N}} & 2e^{i\frac{4\pi(\frac{N}{2})}{N}} & \cancel{\cdots} & 1 & \cancel{\cdots} \\
+			1 & 2e^{i\frac{2\pi(\frac{N}{2}+1)}{N}}  & 2e^{i\frac{4\pi(\frac{N}{2}+1)}{N}}& \cancel{\cdots} & -1 & \cancel{\cdots} \\
+			\vdots & \vdots & \vdots & \vdots & \vdots & \ddots \\
+			1  &  2e^{i\frac{2\pi(N-1)}{N}} & 2e^{i\frac{4\pi(N-1)}{N}} & \cancel{\cdots} & -1 & \cancel{\cdots} 
+		\end{bNiceMatrix}
+		\begin{bNiceMatrix}
+			X[0]\\
+			X[1]\\
+			X[2]\\
+			\Block[fill=red!20]{1-1}{} \tikzmarknode{termsNearZero}{\vdots}\\
+			X[\frac{N}{2}] \\
+			\tikzmarknode{termNeg}{\vdots}
+		\end{bNiceMatrix}
+	\end{align*}
+	
+	
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (termsNearZero.north west) -- ++(-1.0cm, 3.0cm) 
+		node[annot, left] {Most coefficients $\approx 0$ from chirp)};
+	\end{tikzpicture}
+\end{frame}
+
+
+\begin{frame}[fragile]{Coarse Approach 3}
+	Compute correlation surface using $N=60$ complex coefficients by omitting coefficients near $0$ and exploiting conjugate symmetry. Live compute twiddles. $O(nm)$
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+auto [coeffs_a_conj, coeffs_b] = // 129 coefficients each
+array_r<Nsamples> surface;
+
+for (size_t i=1; i < coeffs_a_conj.size()-1; ++i)
+{
+	coeffs_a_conj[i] *= 2;
+}
+
+// count the first M terms with magnitude larger than a threshold
+
+auto time_start = time_func();
+// same nested loop structure. Now N*M = 256*60 = 15360 mults
+auto time_stop = time_func();
+	\end{lstlisting}
+	
+\end{frame}
+
+\begin{frame}
+	TODO: talk about inaccuracies from dropping the terms near zero (they werent perfectly 0)
+\end{frame}
+
+\begin{frame}{Results}
+	\coarsetable{1}{3}
+\end{frame}
+
+
+\begin{frame}[fragile]{Coarse Approach 4}
+	Compute correlation surface using $Nsamples=256$ complex coefficients by exploiting conjugate symmetry. precompute twiddles. $O(n^2)$
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+auto time_start = time_func();
+
+constexpr size_t Noutputs_used = Nsamples/2;
+for (size_t out_idx = 0; out_idx < Noutputs_used; ++out_idx)
+{
+	Real sum(0.0);
+	for (size_t i = 0; i < Ncoeffs; ++i)
+	{
+		auto b = coeffs_b[i];
+		Complex term_i =  b * Wn[out_idx][i]; // a_conj baked in
+		sum += term_i.real();
+	}
+	surface[out_idx] = sum;
+}
+auto time_stop = time_func();
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}{Results}
+	\coarsetable{1}{4}
+\end{frame}
+
+
+\begin{frame}[fragile]{Coarse Approach 5}
+	A Fourier Transform can be computed recursively. This is Radix-2:
+	
+	\begin{align}
+		\mathbf{X} &= \mathcal{F}\{\mathbf{x}\}  \\
+		X[k] &= \sum_{n=0}^{N-1} x[n] e^{-i\frac{2\pi}{N}kn}, \qquad k=0,1,\ldots,N-1 \\
+		&= \sum_{n=0}^{N/2-1} x[n] e^{-i\frac{2\pi}{N}k(2n)} + \sum_{n=0}^{N/2-1} x[n] e^{-i\frac{2\pi}{N}k(2n+1)} \\
+		&= \sum_{n=0}^{N/2-1} x[n] e^{-i\frac{2\pi}{N/2}kn} + e^{-i\frac{2\pi}{N}kn} \sum_{n=0}^{N/2-1} x[n] e^{-i\frac{2\pi}{N/2}kn} \\
+		X[k] &= \mathcal{F}\{\mathbf{x}_{\texttt{evens}}\}  + e^{-i\frac{2\pi}{N}kn} \mathcal{F}\{\mathbf{x}_{\texttt{odds}}\} \\
+		X[k+\frac{N}{2}] &= \mathcal{F}\{\mathbf{x}_{\texttt{evens}}\}  - e^{-i\frac{2\pi}{N}kn} \mathcal{F}\{\mathbf{x}_{\texttt{odds}}\}
+	\end{align}
+	turtles all the way down
+	
+\end{frame}
+
+\begin{frame}
+	\begin{itemize}
+		\item You can radix by any prime number, but N must be a multiple/power of that number
+		\item Radix-2, Radix-3, Radix-4 most common
+		\item Each radix level trades fewer multiplications for code complexity and cache performance
+		\item Modern FFT libraries are extremely complicated and performance is very hardware dependent 
+		\item Not discussed here: in place? bit reversal for high-radix?
+		\item Not discussed here: decimation in time / decimation in frequency
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Coarse Approach 5}
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+// N*log2(N) = 256*8 = 2048
+void butterfly_dit(Complex* buffer) {
+	// en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
+	size_t m = 1;
+	size_t exp_stride = Nsamples;
+	for (size_t s = 1; s <= n_bits; ++s) {
+		size_t mHalf = m;
+		m *= 2;
+		for (size_t k = 0; k < Nsamples; k+= m) {
+			for (size_t j = 0; j < mHalf; ++j) {
+				auto omega = twiddles[exp_stride*j];
+				size_t indA = k + j;
+				size_t indB = indA + mHalf;
+				auto u = buffer[indA];
+				auto t = omega * buffer[indB];
+				buffer[indA] = u + t;
+				buffer[indB] = u - t;
+			}
+		}
+		exp_stride /= 2;
+	}
+}
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}{Results}
+	\coarsetable{1}{5}
+\end{frame}
+
+
+\begin{frame}
+	Oh wait, computing twiddles with \texttt{std::exp} is less efficient and less accurate than \texttt{std::polar} since it's generalized for complex powers and branches. cppreference says \texttt{std::polar} is ~4.5 times faster: https://en.cppreference.com/cpp/numeric/complex/polar
+	
+	\coarsetable{2}{5}
+\end{frame}
+
+\begin{frame}
+	% performance on Teensy	
+	\coarsetable{3}{5}
+\end{frame}
+
+

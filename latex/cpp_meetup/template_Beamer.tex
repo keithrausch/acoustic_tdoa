@@ -20,7 +20,7 @@
 	\begin{frame}{Outline}
 		\tableofcontents
 	\end{frame}
-	c
+	
 	
 	
 %	\begin{frame}{Method Overview}
@@ -42,23 +42,52 @@
 	% 
 	
 	\input{sections/intro_overview}
-	\input{sections/intro_tdoa}
 	\input{sections/intro_fourier}
 	
-	\section{XXX}
 	
-	define correlation, show derived expressions for signal correlation 
 	
-	show that unclean frequency seperation leads to inaccurate peak finding
+	\section{Solving for the Coarse Correlation Surface}
+	\input{sections/approach_coarse}
+	\section{Refining the Coarse Solution}
+	\input{sections/approach_fine}
+	
+
+	
+	\section{Backup}
+	\begin{frame}
+		show "example" results to show unclean frequency separation
+	\end{frame}
+	
+	\section{To Sort}
+	
+	\begin{frame}{Unclean Frequency Separation}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/09_example_correlation_surface_around_expected_peak_10_of_block_period.pdf}
+			\caption{Correlation surface for unclean frequency seperation}
+		\end{figure}
+	\end{frame}
+	
+	\begin{frame}{Clean Frequency Seperation}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/18_realistic_frequency_coefficient_magnitude.pdf}
+			\caption{Clean separation in frequency domain}
+		\end{figure}
+	\end{frame}
+	
+	
+	\section{TODO}
+show actual data recorded and real TDOA measurements (need plots)
 
 	
 	
-	\input{sections/example_equation}
-	\input{sections/example_code}
-	\input{sections/example_figure}
-	\input{sections/example_table}
-    \input{sections/example_discussion}	
-    \input{sections/example_conclusion}
+%	\input{sections/example_equation}
+%	\input{sections/example_code}
+%	\input{sections/example_figure}
+%	\input{sections/example_table}
+%    \input{sections/example_discussion}	
+%    \input{sections/example_conclusion}
 	
 	
 	%------------------------------------------------

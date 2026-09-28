@@ -1,0 +1,297 @@
+
+%\section{Naive Approach}
+
+
+\begin{frame}{Refinement}
+	True peak location will always be between 2 audio samples. 
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/15_realistic_correlation_surface_around_expected_peak_10_of_block_period.pdf}
+		\caption{Results zoomed and centered around true peak location}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Refinement}
+	\begin{align}
+		(y_1 \star y_2) (\tau) & = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{(\twopii f_m \tau)}
+	\end{align}
+	\vspace{0.5cm}
+	\begin{align}
+		\diff{^{(n)}}{\tau^{(n)}} (y_1 \star y_2)(\tau) & = (\twopii)^{n} T \sum_{m = -N/2}^{N/2-1} f_m^n \overline{A_m} B_m \exp{(\twopii f_m \tau)} \\
+		&\text{where $f^n_{-N/2} = 0$ for odd n}
+	\end{align}
+\end{frame}
+
+
+%\begin{frame}{xxxxxxx}
+%	\begin{figure}
+%		\centering
+%		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/12_realistic_correlation_surface_around_expected_peak_500_of_block_period.pdf}
+%		\caption{Correlation surface}
+%	\end{figure}
+%\end{frame}
+
+
+\begin{frame}{Correlation Surface Derivatives}
+	The correlation peak can be found from the zero-crossing of the first derivative. Let's put it in a root solver and let it run a couple iterations. 
+	
+	
+	\centering
+%	\begin{align*}
+%		sinc(t) &= \frac{sin(t)}{t} \\
+%		\mathcal{F}\{sinc(t)\} &= rect(\omega)
+%	\end{align*}
+	\begin{columns}
+		\begin{column}{0.5\textwidth}
+			\centering
+			\includegraphics[width=\linewidth]{../../python_correlation_sandbox/modern/saved_figs/15_realistic_correlation_surface_around_expected_peak_10_of_block_period.pdf}
+			%			\captionof{figure}{$sinc(t)$}
+		\end{column}
+		\begin{column}{0.5\textwidth}
+			\centering
+			\includegraphics[width=\linewidth]{../../python_correlation_sandbox/modern/saved_figs/16_realistic_fracddtau_correlation_surface_around_expected_peak_10_of_block_period.pdf}
+			%			\captionof{figure}{Second Caption}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+
+\begin{frame}[fragile]{Newton Solver}
+	Solving for the corr peak requires evaling the 0th, 1st, and 2nd derivatives
+		\begin{align}
+			x_{i+1} \leftarrow x_i - \frac{f'(x_i)}{f''(x_i)}
+		\end{align}
+	
+	
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=9 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=10 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=11\color{yellow!30}\fi
+		}]
+struct NewtonSolver
+{
+	template <typename CallableT>
+	static Solution solve(const CallableT &fd0_fd1_fd2, Precision guess_tau_s, size_t n_steps = 4)
+	{
+		Precision x_n = guess_tau_s;
+		for (size_t i = 0; i < n_steps; ++i)
+		{
+			auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
+			auto update = f_d1 / f_d2;
+			x_n = x_n - update;
+		}
+		
+		auto [f_d0, f_d1, f_d2] = fd0_fd1_fd2(x_n);
+		return Solution{.x_final=x_n, .f_at_x_final=f_d0};
+	}
+};
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}{The Refinement Problem}
+	\vspace{-0.5cm}
+	Fundamentally different problem now since we need only data point, but at a completely arbitrary location
+	\begin{align*}
+		\begin{bNiceMatrix}
+			\\
+			\\
+			x[12.34]\\
+			\\
+			\\
+		\end{bNiceMatrix} &=
+		\begin{bmatrix}
+			&  &  &  & \\
+			&  &  &  & \\
+			1 & e^{i\frac{2\pi(12.34)}{N}} & e^{i\frac{4\pi(12.34)}{N}} & \cdots & e^{i\frac{2\pi(12.34)(N-1)}{N}}\\
+			 &  &  &  & \\
+			 & & & & \\
+			 & & & & % \\
+		\end{bmatrix}
+		\begin{bNiceMatrix}
+			X[0]\\
+			X[1]\\
+			X[2]\\
+			\vdots\\
+			X[N-1]
+		\end{bNiceMatrix}
+	\end{align*}
+\end{frame}
+
+
+\begin{frame}{Refinement Approach 1}
+	\begin{itemize}
+		\item One function to compute the function at any derivative order
+		\item Evaluate multiple derivatives simultaneously via template metaprogramming
+		\item Compiler cannot optimize or reuse calls to std::exp or std::polar
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Refinement Approach 1}
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=1 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=7 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=8 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=24 \color{yellow!30}\fi
+		}]
+template <size_t deriv_order, typename TauT>
+auto correlate_impl(const CoeffsT &B, const TauT tau) const
+{
+	Real sum(0.0);
+	for (size_t i = 0; i < Ncoeffs; ++i)
+	{
+		auto Wn = std::polar(1, constants::twopi * freqs[i] * tau);
+		Complex term_i = coeffs_a_conj_and_f[deriv_order][i]*B[i]*Wn;
+		
+		// pull only the real/imag parts. components not taken are 0
+		if constexpr(deriv_order%4==0)      sum+=term_i.real();
+		else if constexpr(deriv_order%4==1) sum-=term_i.imag();
+		else if constexpr(deriv_order%4==2) sum-=term_i.real();
+		else if constexpr(deriv_order%4==3) sum+=term_i.imag();
+	}
+	return sum;
+}
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}[fragile]{Refinement Approach 1}
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=14 \color{yellow!30}\fi
+		}]
+template <typename TauT, size_t... indicesT>
+auto correlate_and_derive_impl(const CoeffsT &B, const TauT tau, std::integer_sequence<size_t, indicesT...>) const
+{
+	using correlation_type = decltype(correlate_impl<0>(B, tau));
+	std::array<correlation_type, sizeof...(indicesT)> ret;
+	((ret[indicesT] = correlate_impl<indicesT>(B, tau)), ...);
+	return ret;
+}
+
+
+template <size_t deriv_order, typename TauT = Real>
+auto correlate_and_derive_v0(const CoeffsT &B, const TauT tau) const
+{
+	return correlate_and_derive_impl(B, tau, std::make_index_sequence<deriv_order + 1>());
+}
+	\end{lstlisting}
+	
+\end{frame}
+
+\begin{frame}{Results}
+	\refinementtable{3}{1}
+\end{frame}
+
+
+\begin{frame}{Refinement Approach 2}
+	\begin{itemize}
+		\item Compute all derivative orders in the same function
+		\item Evaluate all twiddles on each iteration
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Refinement Approach 2}
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=8 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=9 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=13 \color{yellow!30}\fi
+		}]
+template <size_t deriv_order, typename TauT = Real>
+auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) {
+	constexpr size_t Norders = deriv_order + 1; // include orig fcn
+	
+	std::array<Real, Norders> sum; // fill 0
+	for (size_t i = 0; i < Ncoeffs; ++i)
+	{
+		auto Wn = std::polar(1, twopi * freqs[i] * tau);
+		auto coeff_b_and_Wn = B[i] * Wn;
+		
+		for (size_t order = 0; order < Norders; ++order)
+		{
+			Complex term_i=coeffs_a_conj_and_f[order][i]*coeff_b_and_Wn;
+			
+			// pull only the real/imag parts. components not taken are 0
+			if constexpr(derivative_order%4==0)      sum+=term_i.real();
+			else if constexpr(derivative_order%4==1) sum-=term_i.imag();
+			else if constexpr(derivative_order%4==2) sum-=term_i.real();
+			else if constexpr(derivative_order%4==3) sum+=term_i.imag();
+		}
+	} return sum;
+}
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}{Results}
+	\refinementtable{3}{2}
+\end{frame}
+
+
+\begin{frame}{Discrete Fourier Transform (Summation Form)}
+	\begin{align}
+		x[k] &= \sum_{n=0}^{N-1} X[n] e^{i\frac{2\pi}{N}kn}, \qquad k=0,1,\ldots,N-1 \\
+		\\
+		W &= e^{i\frac{2\pi}{N}\tau} \\
+		x(k) &= \sum_{n=0}^{N-1} X[n] W^n, \qquad k=0,1,\ldots,N-1 \\
+	\end{align}
+\end{frame}
+
+\begin{frame}{Refinement Approach 3}
+	\begin{itemize}
+		\item Compute all derivatives in the same function
+		\item Evaluate one twiddle. Use it to recursively compute the rest
+		\item Potential accuracy hit for some scenarios 
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{Refinement Approach 3}
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=5 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=15 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=22 \color{yellow!30}\fi
+		}]
+template <size_t deriv_order, typename TauT = Real>
+auto correlate_and_derive_v2(const CoeffsT &B, const TauT tau) {
+	constexpr size_t Norders = deriv_order + 1; // include orig fcn
+	
+	Complex Wn(1,0);
+	Complex W1 = std::polar(1, twopi * freqs[1] * tau);
+	
+	std::array<Real, Norders> sum; // fill 0
+	for (size_t i = 0; i < Ncoeffs; ++i)
+	{
+		auto coeff_b_and_Wn = B[i] * Wn;
+		
+		for (size_t order = 0; order < Norders; ++order)
+		{
+			Complex term_i=coeffs_a_conj_and_f[order][i]*coeff_b_and_Wn;
+			
+			if (order % 4 == 0)          sum[order] += term_i.real();
+			else if (order % 4 == 1)     sum[order] -= term_i.imag();
+			else if (order % 4 == 2)     sum[order] -= term_i.real();
+			else /*if (order % 4 == 3)*/ sum[order] += term_i.imag();
+		}
+		Wn *= W1;
+	} return sum;
+}
+	\end{lstlisting}
+	
+\end{frame}
+
+
+\begin{frame}{Results}
+	\refinementtable{3}{3}
+\end{frame}
+
+
+
+

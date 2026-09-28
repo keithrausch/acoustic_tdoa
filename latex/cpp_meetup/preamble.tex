@@ -11,39 +11,473 @@
 \usepackage{graphicx}    % Images
 \usepackage{booktabs}    % Better tables
 \usepackage{amsmath}
+\usepackage{nicematrix}
 \usepackage{amssymb}
 \usepackage{hyperref}
 \usepackage{xurl}
 \usepackage{caption}
 \usepackage{listings}
+\usepackage{lstlinebgrd} % Extends listings to support line backgrounds
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing}
+\usetikzlibrary{arrows.meta,tikzmark,calc,decorations.pathreplacing}
+\usepackage[thinc]{esdiff}
 
 \usepackage{xcolor}
+\usepackage{cancel}
 
-\definecolor{codegreen}{rgb}{0,0.5,0}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{codeblue}{rgb}{0,0.2,0.8}
+\definecolor{codeblue}{RGB}{0,102,204}
+\definecolor{codegreen}{RGB}{0,128,0}
+\definecolor{codepurple}{RGB}{163,21,133}
+\definecolor{codeorange}{RGB}{175,95,0}
+\definecolor{codeteal}{RGB}{0,128,128}
+\definecolor{codegray}{RGB}{128,128,128}
+
 
 \lstdefinestyle{cppstyle}{
 	language=C++,
-	basicstyle=\ttfamily\small,
+	basicstyle=\ttfamily\scriptsize,
+	% Colors
 	keywordstyle=\color{codeblue}\bfseries,
 	commentstyle=\color{codegreen},
 	stringstyle=\color{codepurple},
 	numberstyle=\tiny\color{codegray},
+	% Line numbers
 	numbers=left,
-	numbersep=10pt,
-	xleftmargin=25pt,
-	xrightmargin=5pt,
+	numbersep=5pt,
+	% Layout
+	xleftmargin=5pt,
+	xrightmargin=0pt,
 	frame=single,
 	breaklines=true,
 	showstringspaces=false,
-	tabsize=4
+	tabsize=2,	
+	% --------------------------------------------------
+	% C++ keywords
+	% --------------------------------------------------
+	morekeywords={
+		alignas,
+		alignof,
+		and,
+		and_eq,
+		asm,
+		atomic_cancel,
+		atomic_commit,
+		atomic_noexcept,
+		bitand,
+		bitor,
+		catch,
+		class,
+		compl,
+		concept,
+		consteval,
+		constexpr,
+		constinit,
+		const_cast,
+		co_await,
+		co_return,
+		co_yield,
+		decltype,
+		default,
+		delete,
+		do,
+		dynamic_cast,
+		else,
+		explicit,
+		export,
+		extern,
+		false,
+		for,
+		friend,
+		goto,
+		if,
+		inline,
+		mutable,
+		namespace,
+		new,
+		noexcept,
+		not,
+		not_eq,
+		nullptr,
+		operator,
+		or,
+		or_eq,
+		override,
+		private,
+		protected,
+		public,
+		reinterpret_cast,
+		requires,
+		return,
+		signed,
+		sizeof,
+		static,
+		static_assert,
+		static_cast,
+		struct,
+		switch,
+		template,
+		this,
+		thread_local,
+		throw,
+		true,
+		try,
+		typedef,
+		typename,
+		union,
+		unsigned,
+		using,
+		virtual,
+		void,
+		volatile,
+		wchar_t,
+		while,
+		xor,
+		xor_eq
+		},
+	% --------------------------------------------------
+	% Types
+	% --------------------------------------------------
+	emph={
+		% C++ / STL types
+		vector,
+		string,
+		array,
+		map,
+		unordered_map,
+		set,
+		unordered_set,
+		list,
+		deque,
+		queue,
+		priority_queue,
+		stack,
+		pair,
+		tuple,
+		optional,
+		variant,
+		any,
+		unique_ptr,
+		shared_ptr,
+		weak_ptr,
+		string_view,
+		span,
+		size_t,
+		% Project-specific types
+		Real,
+		Complex,
+		array_r,
+		array_c
+	},
+	emphstyle=\color{codeteal}\bfseries,
+	% --------------------------------------------------
+	% Functions
+	% --------------------------------------------------
+	emph={[2] 
+		begin,
+		end,
+		size,
+		empty,
+		push_back,
+		emplace_back,
+		insert,
+		erase,
+		find,
+		sort,
+		move,
+		forward,
+		make_pair,
+		make_tuple,
+		swap
+		},
+		emphstyle={[2]\color{codeorange}},
+	% --------------------------------------------------
+	% Namespaces
+	% --------------------------------------------------
+	emph={[3]
+		std,
+		types,
+		domain,
+		constants
+	},
+	emphstyle={[3]\color{codeblue}}
 }
 
 \lstset{style=cppstyle}
+
+
+
+% In preamble
+\usepackage{graphicx}
+\usepackage{array}
+
+\newcommand{\rotheader}[1]{%
+	\rotatebox[origin=l]{45}{\scriptsize #1}%
+}
+
+\newcommand{\coarsetable}[2]{%
+	\begin{tabular}{
+			l
+			>{\raggedright\arraybackslash}p{0.6cm}
+			>{\raggedright\arraybackslash}p{0.6cm}
+			>{\raggedright\arraybackslash}p{0.6cm}
+			>{\raggedright\arraybackslash}p{0.6cm}
+			>{\raggedright\arraybackslash}p{0.6cm}
+		}
+		\hline
+		
+		&
+		\ifnum#2>0
+		\rotheader{naive c2c, live twiddles, $O(n^2)$}
+		\else
+		\phantom{\rotheader{naive c2c, live twiddles, $O(n^2)$}}
+		\fi
+		&
+		\ifnum#2>1
+		\rotheader{naive c2r, live twiddles, conj sym, $O(n^2)$}
+		\else
+		\phantom{\rotheader{naive c2r, live twiddles, conj sym, $O(n^2)$}}
+		\fi
+		&
+		\ifnum#2>2
+		\rotheader{naive c2r, live twiddles, conj sym, $\emptyset$ 0's,  $O(n^2)$}
+		\else
+		\phantom{\rotheader{naive c2r, live twiddles, conj sym, $\emptyset$ 0's,  $O(n^2)$}}
+		\fi
+		&
+		\ifnum#2>3
+		\rotheader{naive c2r, precomp. twiddles, conj sym, $O(n^2)$}
+		\else
+		\phantom{\rotheader{naive c2r, precomputed twiddles, conj sym, $O(n^2)$}}
+		\fi
+		&
+		\ifnum#2>4
+		\rotheader{FFT c2r, precomp. twiddles, $O(n\log(n))$}
+		\else
+		\phantom{\rotheader{FFT c2r, precomputed twiddles, $O(n\log(n))$}}
+		\fi
+		\\
+		
+		\hline
+		&
+		\multicolumn{4}{c}{\textit{runtime [$\mu$s]}}
+		\\
+		
+		% ------------------------------------------------
+		% Row 1
+		% ------------------------------------------------
+		Apple M2 (\texttt{std::exp})
+		&
+		\ifnum#2>0 1087\else\phantom{1087}\fi
+		&
+		\ifnum#2>1 287\else\phantom{287}\fi
+		&
+		\ifnum#2>2 284\else\phantom{284}\fi
+		&
+		\ifnum#2>3 xxx\else\phantom{xxx}\fi
+		&
+		\ifnum#2>4 0.78\else\phantom{0.78}\fi
+		\\
+		
+		% ------------------------------------------------
+		% Row 2
+		% ------------------------------------------------
+		\ifnum#1>1
+		Apple M2 (\texttt{std::polar})
+		\else
+		\phantom{Apple M2 (\texttt{std::polar})}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>0 797\else\phantom{797}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>1 216\else\phantom{216}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>2 215\else\phantom{215}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>3 xxx\else\phantom{xxx}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>4 0.74\else\phantom{0.74}\fi
+		\else
+		\phantom{0}
+		\fi
+		\\
+		
+		% ------------------------------------------------
+		% Row 3
+		% ------------------------------------------------
+		\ifnum#1>2
+		Teensy 4.1 (\texttt{std::polar})
+		\else
+		\phantom{Teensy 4.1 (\texttt{std::polar})}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>0 31\else\phantom{31}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>1 32\else\phantom{32}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>2 33\else\phantom{33}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>3 :(\else\phantom{:(}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>4 35\else\phantom{35}\fi
+		\else
+		\phantom{0}
+		\fi
+		\\
+		
+		\hline
+	\end{tabular}%
+}
+
+
+\newcommand{\refinementtable}[2]{%
+		\begin{tabular}{
+						l
+						>{\raggedright\arraybackslash}p{0.6cm}
+						>{\raggedright\arraybackslash}p{0.6cm}
+						>{\raggedright\arraybackslash}p{0.6cm}
+					}
+				\hline
+				
+				&
+				\ifnum#2>0
+				\rotheader{Assume optimizer reuses twiddles across fcns}
+				\else
+				\phantom{\rotheader{Assume optimizer reuses twiddles across fcns}}
+				\fi
+				&
+				\ifnum#2>1
+				\rotheader{Manually reuse twiddles for all derivatives}
+				\else
+				\phantom{\rotheader{Manually reuse twiddles for all derivatives}}
+				\fi
+				&
+				\ifnum#2>2
+				\rotheader{Manually compute twiddles recursively }
+				\else
+				\phantom{\rotheader{Manually compute twiddles recursively }}
+				\fi
+				\\
+				
+				\hline
+				&
+				\multicolumn{3}{c}{\textit{runtime [$\mu$s]}}
+				\\
+				
+				% ------------------------------------------------
+				% Row 1
+				% ------------------------------------------------
+				Apple M2 (\texttt{std::exp})
+				&
+				\ifnum#2>0 10.81\else\phantom{10.81}\fi
+				&
+				\ifnum#2>1 6.15\else\phantom{6.15}\fi
+				&
+				\ifnum#2>2 1.93\else\phantom{1.93}\fi
+				\\
+				
+				% ------------------------------------------------
+				% Row 2
+				% ------------------------------------------------
+				\ifnum#1>1
+				Apple M2 (\texttt{std::polar})
+				\else
+				\phantom{Apple M2 (\texttt{std::polar})}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>0 7.03\else\phantom{7.03}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>1 4.29\else\phantom{4.29}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>2 1.96\else\phantom{1.96}\fi
+				\else
+				\phantom{0}
+				\fi
+				\\
+				
+				% ------------------------------------------------
+				% Row 3
+				% ------------------------------------------------
+				\ifnum#1>2
+				Teensy 4.1 (\texttt{std::polar})
+				\else
+				\phantom{Teensy 4.1 (\texttt{std::polar})}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>0 31\else\phantom{31}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>1 32\else\phantom{32}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>2 33\else\phantom{33}\fi
+				\else
+				\phantom{0}
+				\fi
+				\\
+				
+				\hline
+			\end{tabular}%
+	}
+
+
+\newcommand\twopi{2 \pi}
+\newcommand\twopii{\twopi \mathrm{i}}
+\newcommand\pii{\pi \mathrm{i}}
+
+
+
+	\tikzstyle{annot} = [font=\small, text=red, align=left]
+
 
 %------------------------------------------------
 % Title Information
@@ -60,3 +494,6 @@
 		\Huge\insertsection
 	\end{frame}
 }
+
+
+

@@ -63,52 +63,98 @@
 	\begin{figure}
 		
 		Any complex number can be represented as a complex exponential.
-		\begin{align*}
+		\begin{align}
 			e^{i\omega t} = \cos(\omega t) + i\sin(\omega t)
-		\end{align*}
+		\end{align}
 		
 		Multiplying complex numbers and complex exponentials together is like shifting the phase of a sine wave, especially when using conjugated weights and negative frequencies. More on this later...
-		\begin{align*}
+		\begin{align}
 			(A+iB) e^{i\omega t} + (A-iB) e^{-i\omega t} &=2A \cos(\omega t) - 2B \sin(\omega t) \\ 
-			&= C \cos(\omega t + \phi)  \\ 
-		\end{align*}
+			&= C \cos(\omega t + \phi)
+		\end{align}
 	\end{figure}
 \end{frame}
 
-\begin{frame}{Discrete Fourier Transform}
-	\begin{figure}
+\begin{frame}{Discrete Fourier Transform (Summation Form)}
+		\begin{align}
+			\mathbf{X} &= 	\mathcal{F}\{\mathbf{x}\}, \qquad
+			\mathbf{x} = 	\mathcal{F}^{-1}\{\mathbf{X}\} \\
+		X[k] &= \sum_{n=0}^{N-1} x[n] \tikzmarknode{twiddleFactorA}{e^{-i\frac{2\pi}{N}kn}}, \qquad k=0,1,\ldots,N-1 \\
+		x[k] &= \sum_{n=0}^{N-1} X[n] \tikzmarknode{twiddleFactorB}{e^{i\frac{2\pi}{N}kn}}, \qquad k=0,1,\ldots,N-1
+		\end{align}
+		\vspace{0.5cm}
+		\begin{align}
+		X[k]_c &= \sum_{n=0}^{N-1} x[n] \cos({\frac{2\pi}{N}kn}), \qquad k=0,1,\ldots,N-1 \\
+		X[k]_s &= \sum_{n=0}^{N-1} x[n] \sin({\frac{-2\pi}{N}kn}), \qquad k=0,1,\ldots,N-1
+		\end{align}
+		
+		\begin{tikzpicture}[overlay, remember picture]
+			\coordinate (midpoint)
+			at ($(twiddleFactorA.south)!0.5!(twiddleFactorB.south)$);
+			
+			\node (label) at ($(midpoint)+(2.5cm,-1.7cm)$)
+			{\textcolor{red}{twiddle factors}};
+			\draw[->, thick, red] (label.north west) -- (twiddleFactorA.south);
+			\draw[->, thick, red] (label.north west) -- (twiddleFactorB.south);
+		\end{tikzpicture}
+\end{frame}
+
+
+\begin{frame}{Discrete Fourier Transform (Matrix Expression)}
+	\vspace{-0.5cm}
 		\begin{align*}
-		\mathbf{X} &= 	\mathcal{F}\{\mathbf{x}\} \\
-		X[k] &= \sum_{n=0}^{N-1} x[n] e^{-i\frac{2\pi}{N}kn},
-		\qquad k=0,1,\ldots,N-1 \\
-		\begin{bmatrix}
-			X[0]\\
-			X[1]\\
-			X[2]\\
-			\vdots\\
-			X[N-1]
-		\end{bmatrix}
-		&=
-		\begin{bmatrix}
-			1 & 1 & 1 & \cdots & 1\\
-			1 & e^{-i\frac{2\pi}{N}} & e^{-i\frac{4\pi}{N}} & \cdots & e^{-i\frac{2\pi(N-1)}{N}}\\
-			1 & e^{-i\frac{4\pi}{N}} & e^{-i\frac{8\pi}{N}} & \cdots & e^{-i\frac{4\pi(N-1)}{N}}\\
-			\vdots & \vdots & \vdots & \ddots & \vdots\\
-			1 & e^{-i\frac{2\pi(N-1)}{N}} &
-			e^{-i\frac{4\pi(N-1)}{N}} &
-			\cdots &
-			e^{-i\frac{2\pi(N-1)^2}{N}}
-		\end{bmatrix}
-		\begin{bmatrix}
-			x[0]\\
-			x[1]\\
-			x[2]\\
-			\vdots\\
-			x[N-1]
-		\end{bmatrix} \\
-		\mathbf{X} &= \mathbf{F}_N \mathbf{x}
+			\mathbf{X} &= \mathbf{F}_N \mathbf{x}, \qquad \mathbf{x} = \mathbf{F}^{-1}_N \mathbf{X} \\
+			\begin{bmatrix}
+				X[0]\\
+				X[1]\\
+				X[2]\\
+				\vdots\\
+				X[N-1]
+			\end{bmatrix}
+			&=
+			\begin{bmatrix}
+				1 & 1 & 1 & \cdots & 1\\
+				1 & e^{-i\frac{2\pi}{N}} & e^{-i\frac{4\pi}{N}} & \cdots & e^{-i\frac{2\pi(N-1)}{N}}\\
+				1 & e^{-i\frac{4\pi}{N}} & e^{-i\frac{8\pi}{N}} & \cdots & e^{-i\frac{4\pi(N-1)}{N}}\\
+				\vdots & \vdots & \vdots & \ddots & \vdots\\
+				1 & e^{-i\frac{2\pi(N-1)}{N}} &
+				e^{-i\frac{4\pi(N-1)}{N}} &
+				\cdots &
+				e^{-i\frac{2\pi(N-1)^2}{N}}
+			\end{bmatrix}
+			\begin{bmatrix}
+				x[0]\\
+				x[1]\\
+				x[2]\\
+				\vdots\\
+				x[N-1]
+			\end{bmatrix} \\
+			\\[-0.4cm]
+			\begin{bmatrix}
+				X[0]_c\\
+				X[0]_s\\
+				X[1]_c\\
+				X[1]_s\\
+				\vdots\\
+			\end{bmatrix}
+			&=
+			\begin{bmatrix}
+				1 & 1 & 1 & \cdots & 1\\
+				0 & 0 & 0 & \cdots & 0\\
+				1 & \cos(\frac{2\pi}{N}) & \cos(\frac{4\pi}{N}) & \cdots & \cos(\frac{2\pi(N-1)}{N})\\
+				0 & \sin(\frac{-2\pi}{N}) & \sin(\frac{-4\pi}{N}) & \cdots & \sin(\frac{-2\pi(N-1)}{N})\\
+				1 & \cos(\frac{4\pi}{N}) & \cos(\frac{8\pi}{N}) & \cdots & \cos(\frac{4\pi(N-1)}{N})\\
+				0 & \sin(\frac{-4\pi}{N}) & \sin(\frac{-8\pi}{N}) & \cdots & \sin(\frac{-4\pi(N-1)}{N})\\
+				\vdots & \vdots & \vdots & \ddots & \vdots\\
+			\end{bmatrix}
+			\begin{bmatrix}
+				x[0]\\
+				x[1]\\
+				x[2]\\
+				\vdots\\
+				x[N-1]
+			\end{bmatrix}
 		\end{align*}
-	\end{figure}
 \end{frame}
 
 \begin{frame}{Example Chirp}
@@ -132,9 +178,37 @@
 \end{frame}
 
 
-\begin{frame}{Key Point - DFT Is A Matrix Multiplication}
+
+\begin{frame}
+	Express the discrete-time audio samples and correlation surface as a continuous-time functions constructed from their Fourier coefficients
+	\begin{align}
+		\text{chirp[i]} \rightarrow y_1(t) & = \sum_{m}^{} A_m \exp{(\twopii f_m t)} \\
+		\text{ambient[i]} \rightarrow y_2(t) & = \sum_{m}^{} B_m \exp{(\twopii f_m t)}
+	\end{align}
+	
+	\begin{align}
+		(y_1 \star y_2) [\tau] &= \sum_{m}^{} \text{chirp[m]} \: \text{ambient[m+$\tau$]} \\
+		&= \mathcal{F}^{-1}\{\overline{A} B\} \\
+		&= \mathcal{F}^{-1}\{\overline{\mathcal{F}\{ \text{chirp}\}}  \mathcal{F}\{ \text{ambient}\}\} \\
+		(y_1 \star y_2) (\tau) &= T \sum_{m}^{} \overline{A_m} B_{m} \exp{(\twopii f_m \tau)} 
+	\end{align}
+\end{frame}
+
+\begin{frame}{Key Points}
 		\begin{block}{Key Idea}
-				The Discrete Time Fourier Transform (DFT) can be represented as a matrix multiplication.
+				The Discrete Time Fourier Transform (DFT) can be represented as a matrix multiplication. Both to the frequency domain and back again
+			\end{block}
+			
+			\begin{block}{Key Idea}
+				Complex numbers and complex exponential are interchangeable for succinct math, but $\sin{()}$ and $\cos{()}$ can be used for clarity 
+			\end{block}
+			
+			\begin{block}{Key Idea}
+				The Fourier Coefficients of a $sinc{()}$ form a "rectangle" in the frequency domain
+			\end{block}
+			
+			\begin{block}{Key Idea}
+			    Cross correlation in the time domain is equivalent to element-wise multiplication in the frequency domain
 			\end{block}
 		
 %		\vspace{0.3cm}

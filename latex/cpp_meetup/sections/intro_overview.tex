@@ -6,31 +6,131 @@
 	\begin{itemize}
 		\item Let's build a motion capture suite using microphones and speakers
 		\item Think \href{https://www.lightningmaps.org/\#m=ses;t=3;s=0;o=0;b=;ts=0;z=5;y=35.9448;x=-87.045;d=2;dl=2;dc=0;}{real-time lightening map}
-		\item Joint self-calibration and localization in multi-emitter multi-receiver system
+		\item Joint self-calibration and localization in real time for multi-emitter multi-receiver system
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{How}
+\begin{frame}{Environment}
+	\begin{block}{Environment}
+		\begin{itemize}
+			\item Teensy 4.1 (600MHz Arm Cortex-M7) for perf tests and deployment
+			\item PJRC Audio Board (two 2-channel boards = 4-channel audio)
+			\item CMake (\href{https://github.com/newdigate/teensy-cmake-macros}{github teensy-cmake-macros})
+			\item Arm64 Apple M2 for perf and unit tests
+		\end{itemize}
+	\end{block}
+	
+	\begin{block}{Constraints}
+		\begin{itemize}
+			\item Audio samples are \texttt{signed int16\_t}
+			\item Audio channels are time aligned (phase locked)
+			\item Audio is streaming into the Teensy at 44100 Hz
+			\item Audio samples are grouped into "blocks" of 128 samples
+			\item "Real time" means we have 2.9ms to process a block of 128 samples for each of the 4 input channels
+			\item \textbf{No pre-existing FFT library for Arduino/Teensy that I liked}
+		\end{itemize}
+	\end{block}
+\end{frame}
+
+
+\begin{frame}{Approach}
 	\begin{itemize}
 		\item Use Time Difference of Arrival (TDOA) of a known chirp to estimate receiver/emitter geometry
 		\item The more accurate the TDOA estimates, the more accurate  our receiver/emitter geometry estimates can be
-		\item Typical CD Sampling Frequency (44100Hz) insufficient - we can do better
+		\item Typical CD Sampling Frequency (44100Hz) insufficient for naive algorithms ($ \leq 15$mm position error) - we can do better
 		\item Use frequency domain methods to resolve TDOA beyond the microphone sampling rate
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Mock Chirp}
+\input{sections/intro_tdoa}
+
+\begin{frame}{Approach - Mock Chirp}
+	We will be looking for this chirp in microphone recordings
 	\begin{figure}
 		\centering
-		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/06_example_sinct.pdf}
+%		\includegraphics[width=0.6 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/06_example_sinct.pdf}
+		\includegraphics[width=0.6 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/10_realistic_sinct.pdf} 
 		\caption{Asymptotically approaches 0 at $\pm \infty$}
 	\end{figure}
 \end{frame}
 
-\begin{frame}{Mock Microphone Recording}
+\begin{frame}{Approach - Mock Microphone Recording}
+	Where precisely is the center of chirp in this audio sample?
 	\begin{figure}
 		\centering
-		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/07_example_envt_sinct.pdf}
-		\caption{Template matching in the time domain is intractable (unlike in the image domain)}
+		\includegraphics[width=0.68 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/07_example_envt_sinct.pdf}
+%		\includegraphics[width=0.68 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/11_realistic_envt_sinct.pdf}
+		\caption{Naive template matching in the time domain is inaccurate}
+	\end{figure}
+\end{frame}
+
+\begin{frame}[fragile]{Approach - Cross Correlation}
+	\begin{figure}
+		
+		Definition of Cross Correlation for complex signals with period $T$:
+		\begin{align}
+			(f \star g)(\tau) & = \int_{-\infty}^{+\infty} \overline{f(t)} g(t+\tau) \,dt = \int_{t_0}^{t_0+T} \overline{f(t)} g(t+\tau) \,dt
+		\end{align}
+		
+	\end{figure}
+	
+	
+	\begin{lstlisting}
+int cross_correlation(vector sgnlA, vector sgnlB, int offset)
+{
+	int result = 0;
+	for (int i = 0; i < sgnlA.size(); ++i)
+	{
+		size_t period = sgnlA.size();
+		size_t indexB = (i+offset) % period; // pseudocode
+		result += std::conj(sgnlA[i]) * sgnlB[indexB];
+	}
+	return result;
+}
+	\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}{Cross Correlation}
+	Cross-correlating the chirp with the input audio stream produces peaks where signals are "similar"
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.68 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/08_example_correlation_surface_around_expected_peak_500_of_block_period.pdf}
+		\caption{Results zoomed and centered around true peak location}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Cross Correlation}
+	True peak location will always be between 2 audio samples. 
+	
+	$\pm1$ sample  $\approx \pm 22.6 \mu$s.  range error $\approx \pm 0.3$in. angular error $ \approx \pm6.9^\circ$
+	
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.7 \textwidth]{../../python_correlation_sandbox/modern/saved_figs/15_realistic_correlation_surface_around_expected_peak_10_of_block_period.pdf}
+		\caption{Results zoomed and centered around true peak location}
+	\end{figure}
+\end{frame}
+
+
+\begin{frame}{Solutions that don't work}
+	\begin{figure}
+		\begin{itemize}
+			\item Interpolating the discrete correlation surface's derivative directly is inaccurate
+			\item Fitting a 2nd order polynomial to the area around the raw audio is super inaccurate - unclean signal separation
+			\item Fitting a 2nd order polynomial to the area around the correlation peak is also inaccurate - but worth investigating
+		\end{itemize}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Our Solution}
+	\begin{figure}
+		\begin{itemize}
+			\item Re-express the chirp and recorded audio as continuous-time signals using the frequency domain
+			\item Use those to express the correlation surface as a continuous-time function instead of a discrete-time one
+			\item Find a coarse estimate of the peak using fast, industry standard algorithms (FFT)
+			\item Refine the coarse estimate by using a root-solver on the analytic derivative of the continuous-time correlation surface
+			\item Profittttt
+		\end{itemize}
 	\end{figure}
 \end{frame}
