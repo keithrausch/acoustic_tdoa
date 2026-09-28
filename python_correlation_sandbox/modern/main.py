@@ -3,7 +3,7 @@ from functools import partial
 from scipy import optimize
 import re
 from pathlib import Path
-import os
+import os, shutil
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -87,7 +87,10 @@ def perform_fft_and_shift_and_normalize(period, wave):
 def multipage(folder_name, prefix, figs=None, dpi=200):
     script_dir = Path(__file__).resolve().parent
 
-    os.makedirs(os.path.join(script_dir, folder_name), exist_ok=True)
+    dir_path = os.path.join(script_dir, folder_name)
+    if os.path.exists(dir_path) and os.path.isdir(dir_path):
+        shutil.rmtree(dir_path) # clear out old files else the naming and numbering gets weird
+    os.makedirs(dir_path, exist_ok=True)
 
     if figs is None:
         figs = [plt.figure(n) for n in plt.get_fignums()]
@@ -267,8 +270,20 @@ def test_correlation():
         corr_interp_mag = corr_interp # np.absolute(corr_interp)
         corr_interp_angle = np.angle(corr_interp)
 
+
+        tt_a = tt_true + -duration_s*shrink_factor
+        tt_b = tt_true + duration_s*shrink_factor
+        tt_sample = np.arange(N_sample) * period_sample - duration_s * 0.25 # all timestamps
+        tt_sample = tt_sample[(tt_sample >= tt_a) & (tt_sample <= tt_b)]
+        corr_sample = np.array([correlate(t) for t in tt_sample ])
+        corr_sample_mag = corr_sample # np.absolute(corr_interp)
+        corr_sample_angle = np.angle(corr_sample)
+
+        # mask = (tt_sample <= np.max(tt_interp)) & (tt_sample >= np.min(tt_interp))
+
         plt.figure()
         plt.plot(tt_interp, corr_interp_mag, '-', fillstyle='none', label=r'corr$(\tau)$')
+        plt.plot(tt_sample, corr_sample_mag, 'b.', fillstyle='none')
         plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
         plt.title(rf'example correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
         plt.xlabel('time [s]')
@@ -399,7 +414,7 @@ def test_correlation_realistic_numbers():
         plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
         plt.plot(tt_interp, corr_interp_real, 'b-', fillstyle='none', label=r'corr$(\tau)$')
         plt.plot(tt_sample, corr_sample_real, 'b.', fillstyle='none')
-        plt.plot(tt_ifft[tt_ifft_mask], corr_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft', markersize=18)
         plt.xlabel('time [s]')
         plt.title(f'realistic correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
         plt.legend()
@@ -408,7 +423,7 @@ def test_correlation_realistic_numbers():
         plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
         plt.plot(tt_interp, corr_deriv1_interp_real, 'g-', fillstyle='none', label=r'$\frac{d}{d\tau}$ corr$(\tau)$')
         plt.plot(tt_sample, corr_deriv1_sample_real, 'g.', fillstyle='none')
-        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv1_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv1_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft', markersize=18)
         plt.title(rf'realistic $\frac{{d}}{{d\tau}}$ correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
         plt.xlabel('time [s]')
         plt.legend()
@@ -417,7 +432,7 @@ def test_correlation_realistic_numbers():
         plt.axvline(tt_true, color='r', linestyle='--', label='expected peak')
         plt.plot(tt_interp, corr_deriv2_interp_real, 'k-', fillstyle='none', label=r'$\frac{d^2}{d\tau^2}$ corr$(\tau)$')
         plt.plot(tt_sample, corr_deriv2_sample_real, 'k.', fillstyle='none')
-        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv2_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft')
+        plt.plot(tt_ifft[tt_ifft_mask], corr_deriv2_ifft_real[tt_ifft_mask], 'r.', fillstyle='none', label='ifft', markersize=18)
         plt.title(rf'realistic $\frac{{d^2}}{{d\tau^2}}$ correlation surface around expected peak (+/-{shrink_factor*100}% of block period)')
         plt.xlabel('time [s]')
         plt.legend()
