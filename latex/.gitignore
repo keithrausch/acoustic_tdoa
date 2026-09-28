@@ -16,7 +16,7 @@
 *.run.xml
 
 # Final compilation output (optional but recommended)
-*.pdf
+# *.pdf
 *.dvi
 *.ps
 
