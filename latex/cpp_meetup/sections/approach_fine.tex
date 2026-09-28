@@ -235,11 +235,25 @@ auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) {
 
 \begin{frame}{Discrete Fourier Transform (Summation Form)}
 	\begin{align}
-		x[k] &= \sum_{n=0}^{N-1} X[n] e^{i\frac{2\pi}{N}kn}, \qquad k=0,1,\ldots,N-1 \\
-		\\
-		W &= e^{i\frac{2\pi}{N}\tau} \\
-		x(k) &= \sum_{n=0}^{N-1} X[n] W^n, \qquad k=0,1,\ldots,N-1 \\
+		x[k] &= \sum_{n=0}^{N-1} X[n] e^{i\frac{2\pi}{N}kn}, \qquad k=0,1,\ldots,N-1
 	\end{align}
+	\vspace{0.5cm}
+	\begin{align}
+	\tikzmarknode{precompute}{W} &= e^{i\frac{2\pi}{N}\tau} \\
+	x(k) &= \sum_{n=0}^{N-1} X[n] \tikzmarknode{update}{W^n}, \qquad k=0,1,\ldots,N-1
+	\end{align}
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (precompute.west) -- ++(-1.0cm, 0.5cm) 
+		node[annot, above] {Precompute once};
+	\end{tikzpicture}
+	
+	\begin{tikzpicture}[overlay, remember picture]
+	% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+	\draw[<-, thick, red] (update.south) -- ++(0.5cm, -1.0cm) 
+	node[annot, below] {Update iteratively since $W^n = W^{n-1} \ W$};
+	\end{tikzpicture}
 \end{frame}
 
 \begin{frame}{Refinement Approach 3}

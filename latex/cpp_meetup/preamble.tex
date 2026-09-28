@@ -23,6 +23,8 @@
 \usepackage[thinc]{esdiff}
 
 \usepackage{xcolor}
+\usepackage[table]{xcolor}
+
 \usepackage{cancel}
 
 \definecolor{codeblue}{RGB}{0,102,204}
@@ -217,11 +219,11 @@
 \newcommand{\coarsetable}[2]{%
 	\begin{tabular}{
 			l
-			>{\raggedright\arraybackslash}p{0.6cm}
-			>{\raggedright\arraybackslash}p{0.6cm}
-			>{\raggedright\arraybackslash}p{0.6cm}
-			>{\raggedright\arraybackslash}p{0.6cm}
-			>{\raggedright\arraybackslash}p{0.6cm}
+			>{\raggedright\arraybackslash}p{0.9cm}
+			>{\raggedright\arraybackslash}p{0.9cm}
+			>{\raggedright\arraybackslash}p{0.9cm}
+			>{\raggedright\arraybackslash}p{0.9cm}
+			>{\raggedright\arraybackslash}p{0.9cm}
 		}
 		\hline
 		
@@ -251,9 +253,9 @@
 		\fi
 		&
 		\ifnum#2>4
-		\rotheader{FFT c2r, precomp. twiddles, $O(n\log(n))$}
+		\rotheader{FFT c2r, precomp., $O(n\log(n))$}
 		\else
-		\phantom{\rotheader{FFT c2r, precomputed twiddles, $O(n\log(n))$}}
+		\phantom{\rotheader{FFT c2r, precomp., $O(n\log(n))$}}
 		\fi
 		\\
 		
@@ -261,58 +263,62 @@
 		&
 		\multicolumn{4}{c}{\textit{runtime [$\mu$s]}}
 		\\
+		\hline
+		&
+		\multicolumn{4}{c}{\texttt{double}}
+		\\
 		
 		% ------------------------------------------------
 		% Row 1
 		% ------------------------------------------------
-		Apple M2 (\texttt{std::exp})
+		Apple M2 (\texttt{exp})
 		&
-		\ifnum#2>0 1087\else\phantom{1087}\fi
+		\ifnum#2>0 \phantom{0}1087.\else\phantom{01087.}\fi
 		&
-		\ifnum#2>1 287\else\phantom{287}\fi
+		\ifnum#2>1 \phantom{00}287.\else\phantom{00287.}\fi
 		&
-		\ifnum#2>2 284\else\phantom{284}\fi
+		\ifnum#2>2 \phantom{00}284.\else\phantom{00284.}\fi
 		&
-		\ifnum#2>3 xxx\else\phantom{xxx}\fi
+		\ifnum#2>3 \phantom{00}12.6\else\phantom{0012.6}\fi
 		&
-		\ifnum#2>4 0.78\else\phantom{0.78}\fi
+		\ifnum#2>4 \phantom{0}0.78\else\phantom{000.78}\fi
 		\\
 		
 		% ------------------------------------------------
 		% Row 2
 		% ------------------------------------------------
 		\ifnum#1>1
-		Apple M2 (\texttt{std::polar})
+		Apple M2 (\texttt{polar})
 		\else
 		\phantom{Apple M2 (\texttt{std::polar})}
 		\fi
 		&
 		\ifnum#1>1
-		\ifnum#2>0 797\else\phantom{797}\fi
+		\ifnum#2>0 \phantom{00}797.\else\phantom{00797.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>1
-		\ifnum#2>1 216\else\phantom{216}\fi
+		\ifnum#2>1 \phantom{00}216.\else\phantom{00216.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>1
-		\ifnum#2>2 215\else\phantom{215}\fi
+		\ifnum#2>2 \phantom{00}105.\else\phantom{00105.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>1
-		\ifnum#2>3 xxx\else\phantom{xxx}\fi
+		\ifnum#2>3 \phantom{00}12.8\else\phantom{0012.8}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>1
-		\ifnum#2>4 0.74\else\phantom{0.74}\fi
+		\ifnum#2>4 \phantom{0}0.74\else\phantom{00.74}\fi
 		\else
 		\phantom{0}
 		\fi
@@ -322,37 +328,123 @@
 		% Row 3
 		% ------------------------------------------------
 		\ifnum#1>2
-		Teensy 4.1 (\texttt{std::polar})
+		Teensy 4.1 (\texttt{polar})
 		\else
 		\phantom{Teensy 4.1 (\texttt{std::polar})}
 		\fi
 		&
 		\ifnum#1>2
-		\ifnum#2>0 31\else\phantom{31}\fi
+		\ifnum#2>0 60702.\else\phantom{60702.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>2
-		\ifnum#2>1 32\else\phantom{32}\fi
+		\ifnum#2>1 15054.\else\phantom{15054.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>2
-		\ifnum#2>2 33\else\phantom{33}\fi
+		\ifnum#2>2 \phantom{0}6942.\else\phantom{06942.}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>2
-		\ifnum#2>3 :(\else\phantom{:(}\fi
+		\ifnum#2>3 \phantom{000}:(\else\phantom{000:(}\fi
 		\else
 		\phantom{0}
 		\fi
 		&
 		\ifnum#1>2
-		\ifnum#2>4 35\else\phantom{35}\fi
+		\ifnum#2>4 64.1\else\phantom{64.1}\fi
+		\else
+		\phantom{0}
+		\fi
+		\\
+		
+		\hline
+		&
+		\multicolumn{4}{c}{\texttt{float}}
+		\\
+		
+		
+		% ------------------------------------------------
+		% Row 4
+		% ------------------------------------------------
+		\ifnum#1>1
+		Apple M2 (\texttt{polar})
+		\else
+		\phantom{Apple M2 (\texttt{std::polar})}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>0 \phantom{00}344.\else\phantom{00344.}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>1 \phantom{000}77.2\else\phantom{00077.2}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>2 \phantom{000}33.7\else\phantom{00033.7}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>3 \phantom{00}12.7\else\phantom{0012.7}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>1
+		\ifnum#2>4 \phantom{0}0.74\else\phantom{00.74}\fi
+		\else
+		\phantom{0}
+		\fi
+		\\
+		
+		% ------------------------------------------------
+		% Row 5
+		% ------------------------------------------------
+		\ifnum#1>2
+		Teensy 4.1 (\texttt{polar})
+		\else
+		\phantom{Teensy 4.1 (\texttt{std::polar})}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>0 37735.\else\phantom{37735.}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>1 \phantom{0}8430.\else\phantom{08430.}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>2 \phantom{0}3532.\else\phantom{03532.}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>3 \phantom{000}:(\else\phantom{000:(}\fi
+		\else
+		\phantom{0}
+		\fi
+		&
+		\ifnum#1>2
+		\ifnum#2>4 31.8\else\phantom{31.8}\fi
 		\else
 		\phantom{0}
 		\fi
@@ -366,9 +458,9 @@
 \newcommand{\refinementtable}[2]{%
 		\begin{tabular}{
 						l
-						>{\raggedright\arraybackslash}p{0.6cm}
-						>{\raggedright\arraybackslash}p{0.6cm}
-						>{\raggedright\arraybackslash}p{0.6cm}
+						>{\raggedright\arraybackslash}p{1.0cm}
+						>{\raggedright\arraybackslash}p{1.0cm}
+						>{\raggedright\arraybackslash}p{1.0cm}
 					}
 				\hline
 				
@@ -380,15 +472,15 @@
 				\fi
 				&
 				\ifnum#2>1
-				\rotheader{Manually reuse twiddles for all derivatives}
+				\rotheader{Manually reuse twiddles inside fcn}
 				\else
-				\phantom{\rotheader{Manually reuse twiddles for all derivatives}}
+				\phantom{\rotheader{Manually reuse twiddles inside fcn}}
 				\fi
 				&
 				\ifnum#2>2
-				\rotheader{Manually compute twiddles recursively }
+				\rotheader{Manually compute twiddles recursively}
 				\else
-				\phantom{\rotheader{Manually compute twiddles recursively }}
+				\phantom{\rotheader{Manually compute twiddles recursively}}
 				\fi
 				\\
 				
@@ -397,16 +489,21 @@
 				\multicolumn{3}{c}{\textit{runtime [$\mu$s]}}
 				\\
 				
+				\hline
+				&
+				\multicolumn{3}{c}{\texttt{double}}
+				\\
+				
 				% ------------------------------------------------
 				% Row 1
 				% ------------------------------------------------
 				Apple M2 (\texttt{std::exp})
 				&
-				\ifnum#2>0 10.81\else\phantom{10.81}\fi
+				\ifnum#2>0 \phantom{00}10.81\else\phantom{00}\phantom{10.81}\fi
 				&
-				\ifnum#2>1 6.15\else\phantom{6.15}\fi
+				\ifnum#2>1 \phantom{000}6.15\else\phantom{000}\phantom{6.15}\fi
 				&
-				\ifnum#2>2 1.93\else\phantom{1.93}\fi
+				\ifnum#2>2 \phantom{000}1.93\else\phantom{000}\phantom{1.93}\fi
 				\\
 				
 				% ------------------------------------------------
@@ -419,19 +516,19 @@
 				\fi
 				&
 				\ifnum#1>1
-				\ifnum#2>0 7.03\else\phantom{7.03}\fi
+				\ifnum#2>0 \phantom{000}7.03\else\phantom{000}\phantom{7.03}\fi
 				\else
 				\phantom{0}
 				\fi
 				&
 				\ifnum#1>1
-				\ifnum#2>1 4.29\else\phantom{4.29}\fi
+				\ifnum#2>1 \phantom{000}4.29\else\phantom{000}\phantom{4.29}\fi
 				\else
 				\phantom{0}
 				\fi
 				&
 				\ifnum#1>1
-				\ifnum#2>2 1.96\else\phantom{1.96}\fi
+				\ifnum#2>2 \phantom{000}1.96\else\phantom{000}\phantom{1.96}\fi
 				\else
 				\phantom{0}
 				\fi
@@ -447,19 +544,80 @@
 				\fi
 				&
 				\ifnum#1>2
-				\ifnum#2>0 31\else\phantom{31}\fi
+				\ifnum#2>0 1001.\phantom{00}\else\phantom{1001.}\phantom{00}\fi
 				\else
 				\phantom{0}
 				\fi
 				&
 				\ifnum#1>2
-				\ifnum#2>1 32\else\phantom{32}\fi
+				\ifnum#2>1 \phantom{0}550.\phantom{00}\else\phantom{0}\phantom{550.}\phantom{00}\fi
 				\else
 				\phantom{0}
 				\fi
 				&
 				\ifnum#1>2
-				\ifnum#2>2 33\else\phantom{33}\fi
+				\ifnum#2>2 \phantom{0}248.\phantom{00}\else\phantom{0}\phantom{248.}\phantom{00}\fi
+				\else
+				\phantom{0}
+				\fi
+				\\
+				
+				\hline
+				&
+				\multicolumn{3}{c}{\texttt{float}}
+				\\
+				
+				% ------------------------------------------------
+				% Row 4
+				% ------------------------------------------------
+				\ifnum#1>1
+				Apple M2 (\texttt{std::polar})
+				\else
+				\phantom{Apple M2 (\texttt{std::polar})}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>0 \phantom{000}3.96\else\phantom{000}\phantom{3.96}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>1 \phantom{000}2.30\else\phantom{000}\phantom{2.30}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>1
+				\ifnum#2>2 \phantom{000}1.94\else\phantom{000}\phantom{1.94}\fi
+				\else
+				\phantom{0}
+				\fi
+				\\
+				
+				% ------------------------------------------------
+				% Row 5
+				% ------------------------------------------------
+				\ifnum#1>2
+				Teensy 4.1 (\texttt{std::polar})
+				\else
+				\phantom{Teensy 4.1 (\texttt{std::polar})}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>0 \phantom{0}408.\phantom{00}\else\phantom{0}\phantom{408.}\phantom{00}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>1 \phantom{0}256.\phantom{00}\else\phantom{0}\phantom{25.}\phantom{00}\fi
+				\else
+				\phantom{0}
+				\fi
+				&
+				\ifnum#1>2
+				\ifnum#2>2 \phantom{00}95.1\phantom{0}\else\phantom{00}\phantom{95.1}\phantom{0}\fi
 				\else
 				\phantom{0}
 				\fi

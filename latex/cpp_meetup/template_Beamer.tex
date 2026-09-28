@@ -51,14 +51,10 @@
 	\section{Refining the Coarse Solution}
 	\input{sections/approach_fine}
 	
-
+\section{Hardware Implementation}
+\input{sections/hardware_implementation}
 	
-	\section{Backup}
-	\begin{frame}
-		show "example" results to show unclean frequency separation
-	\end{frame}
-	
-	\section{To Sort}
+	\section{Misc}
 	
 	\begin{frame}{Unclean Frequency Separation}
 		\begin{figure}
@@ -76,9 +72,14 @@
 		\end{figure}
 	\end{frame}
 	
-	
-	\section{TODO}
-show actual data recorded and real TDOA measurements (need plots)
+	\begin{frame}{Improvements}
+		\begin{itemize}
+			\item Investigate fitting a second order polynomial to the correlation surface and analytically finding its peak location
+			\item Investigate just after around chirp peak in recordings
+			\item 8-channel (multiple Teensy's?)
+			\item PDM microphones for higher quality inputs and phase correction
+			\end{itemize}
+	\end{frame}
 
 	
 	
@@ -94,12 +95,12 @@ show actual data recorded and real TDOA measurements (need plots)
 	% References
 	%------------------------------------------------
 	
-	\begin{frame}[allowframebreaks]{References}
-		
-		\bibliographystyle{plain}
-		\bibliography{references}
-		
-	\end{frame}
+%	\begin{frame}[allowframebreaks]{References}
+%		
+%		\bibliographystyle{plain}
+%		\bibliography{references}
+%		
+%	\end{frame}
 	
 	%------------------------------------------------
 	% Questions
@@ -108,6 +109,18 @@ show actual data recorded and real TDOA measurements (need plots)
 	\begin{frame}
 		\centering
 		\Huge Questions?
+	\end{frame}
+	
+	\begin{frame}{Part 2}
+		\begin{itemize}
+			\item Solving the trilateration problem via the DDS matrix
+			\item Self calibration
+		\end{itemize}
+	\end{frame}
+	
+	\begin{frame}
+		\centering
+		\url{github.com/keithrausch/acoustic_tdoa}
 	\end{frame}
 	
 \end{document}

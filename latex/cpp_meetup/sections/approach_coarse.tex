@@ -222,8 +222,12 @@ auto time_stop = time_func();
 	
 \end{frame}
 
-\begin{frame}
-	TODO: talk about inaccuracies from dropping the terms near zero (they werent perfectly 0)
+\begin{frame}{Approach 3 Not Viable}
+	\begin{itemize}
+		\item The terms that were near zero were not identically zero. 
+		\item This introduced an error of $\approx$ 0.1 on a scale of 1E3 - 1E4)
+		\item Previous errors were \textless 1E-3
+	\end{itemize}
 \end{frame}
 
 \begin{frame}{Results}
@@ -322,14 +326,16 @@ void butterfly_dit(Complex* buffer) {
 
 
 \begin{frame}
-	Oh wait, computing twiddles with \texttt{std::exp} is less efficient and less accurate than \texttt{std::polar} since it's generalized for complex powers and branches. cppreference says \texttt{std::polar} is ~4.5 times faster: https://en.cppreference.com/cpp/numeric/complex/polar
-	
-	\coarsetable{2}{5}
+	Oh wait, computing twiddles with \texttt{std::exp} is less efficient and less accurate than \texttt{std::polar} since \texttt{std::exp} is generalized for complex powers and contains branches. cppreference says \texttt{std::polar} is ~4.5 times faster: https://en.cppreference.com/cpp/numeric/complex/polar
+\end{frame}
+
+\begin{frame}
+\coarsetable{2}{5}
 \end{frame}
 
 \begin{frame}
 	% performance on Teensy	
-	\coarsetable{3}{5}
+	\coarsetable{5}{5}
 \end{frame}
 
 
