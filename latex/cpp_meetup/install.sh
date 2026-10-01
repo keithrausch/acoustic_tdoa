@@ -1,1 +1,1 @@
-sudo dnf install texlive-lstaddons texlive-tikzmark
+sudo dnf install texlive-lstaddons texlive-tikzmark texlive-ulem

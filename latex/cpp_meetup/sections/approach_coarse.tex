@@ -19,8 +19,18 @@
 %	
 %\end{frame}
 
+
+
 \begin{frame}{Coarse Approach 1}
 	\vspace{-0.5cm}
+	
+	\begin{align}
+		(\texttt{chirp} \star \texttt{env}) [ \ldots, \tau, \ldots] &= \mathcal{F}^{-1}\{\overline{\mathcal{F}\{ \texttt{chirp}\}}  \mathcal{F}\{ \texttt{env}\}\} \quad \text{definition} \\
+		(\texttt{chirp} \star \texttt{env}) [ \ldots, \tau, \ldots] &= \mathcal{F}^{-1}\{\mathbf{\overline{A} B}\} \quad \\
+		\notag
+	\end{align}
+	
+	We have to convert to and from the frequency domain at least 3 times
 	\begin{align*}
 		\begin{bNiceMatrix}
 			x[0]\\
@@ -51,7 +61,13 @@
 \begin{frame}[fragile]{Coarse Approach 1}
 	Compute correlation surface from $Nsamples=256$ complex coefficients. Live-compute twiddles. $O(n^2)$ complex multiplications
 	
-	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=1 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=14 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=15 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=16 \color{yellow!30}\fi
+		}]
 auto [coeffs_a_conj, coeffs_b] = // 256 coefficients each
 array_r<Nsamples> surface;
 
@@ -67,7 +83,7 @@ for (size_t out_idx = 0; out_idx < Nsamples; ++out_idx)
 		
 		Real freq = output_index * i / Real(domain::WindowSize);
 		Complex term_i = a_conj * b * std::exp(twopi * freq);
-		sum += term_i.real();
+		sum += term_i.real(); // imaginary components cancel anyways
 	}
 	surface[out_idx] = sum;
 }
@@ -82,7 +98,7 @@ auto time_stop = time_func();
 
 
 \begin{frame}{Coarse Approach 2}
-	\vspace{-0.5cm}
+	\vspace{0.0cm}
 	\begin{align*}
 		\begin{bNiceMatrix}
 			x[0]\\
@@ -117,13 +133,13 @@ auto time_stop = time_func();
 	
 	\begin{tikzpicture}[overlay, remember picture]
 		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
-		\draw[<-, thick, red] (termDC.west) -- ++(-0.5cm, 1.26cm) 
+		\draw[<-, thick, red] (termDC.west) -- ++(-0.5cm, 1.48cm) 
 		node[annot, left] {DC Coefficient (freq=0 or +N or -N)};
 	\end{tikzpicture}
 	
 	\begin{tikzpicture}[overlay, remember picture]
 		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
-		\draw[<-, thick, red] (termNY.west) -- ++(-1.0cm, 3.5cm) 
+		\draw[<-, thick, red] (termNY.west) -- ++(-1.0cm, 3.7cm) 
 		node[annot, left] {Nyquist Coefficient (freq=+N/2 or -N/2)};
 	\end{tikzpicture}
 	
@@ -138,7 +154,11 @@ auto time_stop = time_func();
 	Exploit conjugate symmetry to compute correlation surface using $\frac{Nsamples}{2}+1=129$ complex coefficients . Live-compute twiddles. $O(n^2)$ complex multiplications. Multiply the terms with conjugate symmetry by 2 and take their real component since $z + \bar{z} = 2\operatorname{Re}(z) $
 	
 	
-	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=1 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+		}]
 auto [coeffs_a_conj, coeffs_b] = // 129 coefficients each
 array_r<Nsamples> surface;
 		
@@ -204,7 +224,12 @@ auto time_stop = time_func();
 \begin{frame}[fragile]{Coarse Approach 3}
 	Compute correlation surface using $N=60$ complex coefficients by omitting coefficients near $0$ and exploiting conjugate symmetry. Live compute twiddles. $O(nm)$
 	
-	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=1 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=9 \color{yellow!30}\fi
+		}]
 auto [coeffs_a_conj, coeffs_b] = // 129 coefficients each
 array_r<Nsamples> surface;
 
@@ -225,7 +250,7 @@ auto time_stop = time_func();
 \begin{frame}{Approach 3 Not Viable}
 	\begin{itemize}
 		\item The terms that were near zero were not identically zero. 
-		\item This introduced an error of $\approx$ 0.1 on a scale of 1E3 - 1E4)
+		\item This introduced an error of $\approx$ 0.1 on a scale of 1E3 - 1E4
 		\item Previous errors were \textless 1E-3
 	\end{itemize}
 \end{frame}
@@ -251,7 +276,7 @@ for (size_t out_idx = 0; out_idx < Noutputs_used; ++out_idx)
 	for (size_t i = 0; i < Ncoeffs; ++i)
 	{
 		auto b = coeffs_b[i];
-		Complex term_i =  b * Wn[out_idx][i]; // a_conj baked in
+		Complex term_i =  b * twiddle[out_idx][i]; // a_conj baked in
 		sum += term_i.real();
 	}
 	surface[out_idx] = sum;
@@ -279,10 +304,101 @@ auto time_stop = time_func();
 		X[k+\frac{N}{2}] &= \mathcal{F}\{\mathbf{x}_{\texttt{evens}}\}  - e^{-i\frac{2\pi}{N}kn} \mathcal{F}\{\mathbf{x}_{\texttt{odds}}\}
 	\end{align}
 	turtles all the way down
-	
 \end{frame}
 
-\begin{frame}
+
+\definecolor{fftEven}{gray}{0.90}
+\definecolor{fftOdd}{gray}{0.75}
+
+
+\begin{frame}{Radix-2 FFT}
+	\[
+	\setlength{\arraycolsep}{2pt}
+	\renewcommand{\arraystretch}{1.5}
+	\begin{array}{c|ccccccccccccccccc}
+		& x_0 & x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7
+		& x_8 & x_9 & x_{10} & x_{11} & x_{12} & x_{13} & x_{14} & x_{15} & \dots
+		\\[2pt]
+		
+		i=0 &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!30}o & \dots
+		\\[2pt]
+		
+		i=1 &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o & \dots
+		\\[2pt]
+		
+		i=2 &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o & \dots
+		\\[2pt]
+		
+		i=3 &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!15}e &
+		\cellcolor{gray!15}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o &
+		\cellcolor{gray!30}e &
+		\cellcolor{gray!30}o & \dots
+	\end{array}
+	\]
+\end{frame}
+
+\begin{frame}{Radix-2 FFT}
 	\begin{itemize}
 		\item You can radix by any prime number, but N must be a multiple/power of that number
 		\item Radix-2, Radix-3, Radix-4 most common
@@ -295,7 +411,13 @@ auto time_stop = time_func();
 
 \begin{frame}[fragile]{Coarse Approach 5}
 	
-	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+	\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, 
+		linebackgroundcolor={%
+			\ifnum\value{lstnumber}=14 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=15 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=16 \color{yellow!30}\fi
+			\ifnum\value{lstnumber}=17 \color{yellow!30}\fi
+		}]
 // N*log2(N) = 256*8 = 2048
 void butterfly_dit(Complex* buffer) {
 	// en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
@@ -306,13 +428,13 @@ void butterfly_dit(Complex* buffer) {
 		m *= 2;
 		for (size_t k = 0; k < Nsamples; k+= m) {
 			for (size_t j = 0; j < mHalf; ++j) {
-				auto omega = twiddles[exp_stride*j];
+				auto twiddle = twiddles[exp_stride*j];
 				size_t indA = k + j;
 				size_t indB = indA + mHalf;
-				auto u = buffer[indA];
-				auto t = omega * buffer[indB];
-				buffer[indA] = u + t;
-				buffer[indB] = u - t;
+				auto even_term = buffer[indA];
+				auto odd_term = buffer[indB];
+				buffer[indA] = even_term + twiddle * odd_term;
+				buffer[indB] = even_term - twiddle * odd_term;
 			}
 		}
 		exp_stride /= 2;
@@ -329,7 +451,11 @@ void butterfly_dit(Complex* buffer) {
 
 
 \begin{frame}
-	Oh wait, computing twiddles with \texttt{std::exp} is less efficient and less accurate than \texttt{std::polar} since \texttt{std::exp} is generalized for complex powers and contains branches. cppreference says \texttt{std::polar} is ~4.5 times faster: https://en.cppreference.com/cpp/numeric/complex/polar
+	\begin{itemize}
+		\item Computing twiddles with \texttt{std::exp} is less efficient and less accurate than \texttt{std::polar}
+		\item \texttt{std::exp} is generalized for complex powers and contains branches
+		\item cppreference says \texttt{std::polar} is ~4.5 times faster: \href{https://cppreference.com/cpp/numeric/complex/polar}{cppreference.com/cpp/numeric/complex/polar}
+	\end{itemize}
 \end{frame}
 
 \begin{frame}

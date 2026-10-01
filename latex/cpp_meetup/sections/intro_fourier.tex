@@ -7,7 +7,7 @@
 		% Posted by Shuhao Cao, modified by community. See post 'Timeline' for change history
 		% Retrieved 2026-08-13, License - CC BY-SA 3.0
 		
-		$y(t) =  2.2 \sin(10t)  + \sin(22t )$
+		$y(t) =  2.2 \sin(10t)  + \sin(22t +0.3)$
 		
 		\vspace{1.0cm}
 		
@@ -75,9 +75,42 @@
 	\end{figure}
 \end{frame}
 
+\begin{frame}{Example Transform}
+	\vspace{-0.5cm}
+	\begin{align}
+		\begin{bNiceMatrix}
+			10\texttt{Hz:} \lVert \cdot \rVert=2.2, \angle=0.0\deg \\
+			22\texttt{Hz:} \lVert \cdot \rVert=1.2, \angle=0.3\deg
+		\end{bNiceMatrix} 
+		& \leftarrow \texttt{func}(\begin{bNiceMatrix}
+		x[0]\\
+		\vdots\\
+		x[N-1]
+		\end{bNiceMatrix}) \\
+		\begin{bNiceMatrix}
+			00\texttt{Hz:} (0.0 + \mathrm{i} 0)/2 \\
+			\vdots \\
+			+10\texttt{Hz:} (2.2 + \mathrm{i} 0)/2 \\
+			-10\texttt{Hz:} (2.2 - \mathrm{i} 0)/2 \\
+			\vdots \\
+			+15\texttt{Hz:} (0.0 + \mathrm{i} 0)/2 \\
+			-15\texttt{Hz:} (0.0 - \mathrm{i} 0)/2 \\
+			\vdots \\
+			+22\texttt{Hz:} (1.1 + \mathrm{i} 0.1)/2 \\
+			-22\texttt{Hz:} (1.1 - \mathrm{i} 0.1)/2 \\
+			\vdots
+		\end{bNiceMatrix} 
+		&\leftarrow \texttt{func}(\begin{bNiceMatrix}
+			x[0]\\
+			\vdots\\
+			x[N-1]
+		\end{bNiceMatrix})
+	\end{align}
+\end{frame}
+
 \begin{frame}{Discrete Fourier Transform (Summation Form)}
 		\begin{align}
-			\mathbf{X} &= 	\mathcal{F}\{\mathbf{x}\}, \qquad
+			\tikzmarknode{freqLabel}{\mathbf{X}} &= 	\mathcal{F}\{\tikzmarknode{timeLabel}{\mathbf{x}}\}, \qquad
 			\mathbf{x} = 	\mathcal{F}^{-1}\{\mathbf{X}\} \\
 		X[k] &= \sum_{n=0}^{N-1} x[n] \tikzmarknode{twiddleFactorA}{e^{-i\frac{2\pi}{N}kn}}, \qquad k=0,1,\ldots,N-1 \\
 		x[k] &= \sum_{n=0}^{N-1} X[n] \tikzmarknode{twiddleFactorB}{e^{i\frac{2\pi}{N}kn}}, \qquad k=0,1,\ldots,N-1
@@ -88,12 +121,25 @@
 		X[k]_s &= \sum_{n=0}^{N-1} x[n] \sin({\frac{-2\pi}{N}kn}), \qquad k=0,1,\ldots,N-1
 		\end{align}
 		
+		
+		\begin{tikzpicture}[overlay, remember picture]
+			% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+			\draw[<-, thick, red] (timeLabel.north east) -- ++(1.0cm, 0.4cm) 
+			node[annot, right] {Audio samples};
+		\end{tikzpicture}
+		
+		\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (freqLabel.north west) -- ++(-0.2cm, 0.3cm) 
+		node[annot, above ] {Sinusoid amplitude \& phase info};
+		\end{tikzpicture}
+		
 		\begin{tikzpicture}[overlay, remember picture]
 			\coordinate (midpoint)
 			at ($(twiddleFactorA.south)!0.5!(twiddleFactorB.south)$);
 			
 			\node (label) at ($(midpoint)+(2.5cm,-1.7cm)$)
-			{\textcolor{red}{twiddle factors}};
+			{\textcolor{red}{Twiddle factors}};
 			\draw[->, thick, red] (label.north west) -- (twiddleFactorA.south);
 			\draw[->, thick, red] (label.north west) -- (twiddleFactorB.south);
 		\end{tikzpicture}
@@ -182,34 +228,46 @@
 \begin{frame}
 	Express the discrete-time audio samples and correlation surface as a continuous-time functions constructed from their Fourier coefficients
 	\begin{align}
-		\text{chirp[i]} \rightarrow y_1(t) & = \sum_{m}^{} A_m \exp{(\twopii f_m t)} \\
-		\text{ambient[i]} \rightarrow y_2(t) & = \sum_{m}^{} B_m \exp{(\twopii f_m t)}
+		\texttt{chirp[i]} \rightarrow \texttt{chirp}(t) & = \sum_{m}^{} \tikzmarknode{factorA}{A_m} \exp{(\twopii f_m t)} \\
+		\texttt{env[i]} \rightarrow \texttt{env}(t) & = \sum_{m}^{} \tikzmarknode{factorB}{B_m} \exp{(\twopii f_m t)} \\
+		\notag \\
+		(\texttt{chirp} \star \texttt{env}) [\tau] &= \sum_{m}^{} \texttt{chirp[m]} \: \texttt{env[m+$\tau$]} \\
+		(\texttt{chirp} \star \texttt{env}) [ \ldots, \tau, \ldots] &= \mathcal{F}^{-1}\{\overline{\mathcal{F}\{ \texttt{chirp}\}}  \mathcal{F}\{ \texttt{env}\}\} \quad \text{definition} \\
+		(\texttt{chirp} \star \texttt{env}) [ \ldots, \tau, \ldots] &= \mathcal{F}^{-1}\{\mathbf{\overline{A} B}\} \quad \\
+		\notag \\
+		(\texttt{chirp} \star \texttt{env}) (\tau) &= T \sum_{m}^{} \overline{A_m} B_{m} \exp{(\twopii f_m \tau)} \quad \text{derived}
 	\end{align}
 	
-	\begin{align}
-		(y_1 \star y_2) [\tau] &= \sum_{m}^{} \text{chirp[m]} \: \text{ambient[m+$\tau$]} \\
-		&= \mathcal{F}^{-1}\{\overline{A} B\} \\
-		&= \mathcal{F}^{-1}\{\overline{\mathcal{F}\{ \text{chirp}\}}  \mathcal{F}\{ \text{ambient}\}\} \\
-		(y_1 \star y_2) (\tau) &= T \sum_{m}^{} \overline{A_m} B_{m} \exp{(\twopii f_m \tau)} 
-	\end{align}
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (factorA.north east) -- ++(1.0cm, 0.3cm) 
+		node[annot, right] {$\mathbf{A} = \mathcal{F}\{\texttt{chirp[]}\}$};
+	\end{tikzpicture}
+	
+	\begin{tikzpicture}[overlay, remember picture]
+		% Draw a diagonal arrow/line from the term to an offset coordinate and place text
+		\draw[<-, thick, red] (factorB.south east) -- ++(1.0cm, -0.8cm) 
+		node[annot, right] {$\mathbf{B} = \mathcal{F}\{\texttt{env[]}\}$};
+	\end{tikzpicture}
 \end{frame}
 
 \begin{frame}{Key Points}
+	
+	\begin{block}{Key Idea}
+		Complex numbers and complex exponential are interchangeable for succinct math, but $\sin()$, $\cos()$ pairs can be used for clarity 
+	\end{block}
+	
+	\begin{block}{Key Idea}
+			The Discrete Time Fourier Transform (DFT) can be represented as a matrix multiplication. Both to the frequency domain and back again
+		\end{block}
+		
 		\begin{block}{Key Idea}
-				The Discrete Time Fourier Transform (DFT) can be represented as a matrix multiplication. Both to the frequency domain and back again
-			\end{block}
-			
-			\begin{block}{Key Idea}
-				Complex numbers and complex exponential are interchangeable for succinct math, but $\sin{()}$ and $\cos{()}$ can be used for clarity 
-			\end{block}
-			
-			\begin{block}{Key Idea}
-				The Fourier Coefficients of a $sinc{()}$ form a "rectangle" in the frequency domain
-			\end{block}
-			
-			\begin{block}{Key Idea}
-			    Cross correlation in the time domain is equivalent to element-wise multiplication in the frequency domain
-			\end{block}
+			The Fourier Coefficients of $sinc{()}$ form a "rectangle" in the frequency domain
+		\end{block}
+		
+		\begin{block}{Key Idea}
+   Cross correlation in the time domain is equivalent to element-wise multiplication in the frequency domain
+		\end{block}
 		
 %		\vspace{0.3cm}
 %		

@@ -27,6 +27,9 @@
 
 \usepackage{cancel}
 
+% Use [normalem] to prevent ulem from changing \emph to underline
+\usepackage[normalem]{ulem} 
+
 \definecolor{codeblue}{RGB}{0,102,204}
 \definecolor{codegreen}{RGB}{0,128,0}
 \definecolor{codepurple}{RGB}{163,21,133}
@@ -249,7 +252,7 @@
 		\ifnum#2>3
 		\rotheader{naive c2r, precomp. twiddles, conj sym, $O(n^2)$}
 		\else
-		\phantom{\rotheader{naive c2r, precomputed twiddles, conj sym, $O(n^2)$}}
+		\phantom{\rotheader{naive c2r, precomp. twiddles, conj sym, $O(n^2)$}}
 		\fi
 		&
 		\ifnum#2>4
@@ -290,7 +293,7 @@
 		\ifnum#1>1
 		Apple M2 (\texttt{polar})
 		\else
-		\phantom{Apple M2 (\texttt{std::polar})}
+		\phantom{Apple M2 (\texttt{polar})}
 		\fi
 		&
 		\ifnum#1>1
@@ -330,7 +333,7 @@
 		\ifnum#1>2
 		Teensy 4.1 (\texttt{polar})
 		\else
-		\phantom{Teensy 4.1 (\texttt{std::polar})}
+		\phantom{Teensy 4.1 (\texttt{polar})}
 		\fi
 		&
 		\ifnum#1>2
@@ -376,7 +379,7 @@
 		\ifnum#1>1
 		Apple M2 (\texttt{polar})
 		\else
-		\phantom{Apple M2 (\texttt{std::polar})}
+		\phantom{Apple M2 (\texttt{polar})}
 		\fi
 		&
 		\ifnum#1>1
@@ -416,7 +419,7 @@
 		\ifnum#1>2
 		Teensy 4.1 (\texttt{polar})
 		\else
-		\phantom{Teensy 4.1 (\texttt{std::polar})}
+		\phantom{Teensy 4.1 (\texttt{polar})}
 		\fi
 		&
 		\ifnum#1>2
@@ -643,7 +646,7 @@
 \title{Acoustic Trilateration}
 \subtitle{Part 1: Computing Sub-sample TDOA Estimates}
 \author{Keith Rausch}
-\institute{Cpp Meetup}
+\institute{C++ Meetup}
 \date{\today}
 
 \AtBeginSection[]{
@@ -653,5 +656,16 @@
 	\end{frame}
 }
 
+\newcommand{\sectionsubtitle}{}
+
+\AtBeginSection[]{
+	\begin{frame}[plain]
+		\centering
+		\Huge\insertsection
+		
+		\vspace{0.5cm}
+		\Large\sectionsubtitle
+	\end{frame}
+}
 
 

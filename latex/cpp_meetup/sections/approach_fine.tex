@@ -12,6 +12,7 @@
 \end{frame}
 
 \begin{frame}{Refinement}
+	We turned the correlation surface into a continuous function. We can now differentiate it 
 	\begin{align}
 		(y_1 \star y_2) (\tau) & = T \sum_{m = -N/2}^{N/2-1} \overline{A_m} B_{m} \exp{(\twopii f_m \tau)}
 	\end{align}
@@ -141,7 +142,7 @@ auto correlate_impl(const CoeffsT &B, const TauT tau) const
 	Real sum(0.0);
 	for (size_t i = 0; i < Ncoeffs; ++i)
 	{
-		auto Wn = std::polar(1, constants::twopi * freqs[i] * tau);
+		auto Wn = std::polar(1, twopi * freqs[i] * tau); // twiddle
 		Complex term_i = coeffs_a_conj_and_f[deriv_order][i]*B[i]*Wn;
 		
 		// pull only the real/imag parts. components not taken are 0
@@ -208,7 +209,7 @@ auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) {
 	std::array<Real, Norders> sum; // fill 0
 	for (size_t i = 0; i < Ncoeffs; ++i)
 	{
-		auto Wn = std::polar(1, twopi * freqs[i] * tau);
+		auto Wn = std::polar(1, twopi * freqs[i] * tau); // twiddle
 		auto coeff_b_and_Wn = B[i] * Wn;
 		
 		for (size_t order = 0; order < Norders; ++order)
@@ -216,10 +217,10 @@ auto correlate_and_derive_v1(const CoeffsT &B, const TauT tau) {
 			Complex term_i=coeffs_a_conj_and_f[order][i]*coeff_b_and_Wn;
 			
 			// pull only the real/imag parts. components not taken are 0
-			if constexpr(derivative_order%4==0)      sum+=term_i.real();
-			else if constexpr(derivative_order%4==1) sum-=term_i.imag();
-			else if constexpr(derivative_order%4==2) sum-=term_i.real();
-			else if constexpr(derivative_order%4==3) sum+=term_i.imag();
+			if (order % 4 == 0)          sum[order] += term_i.real();
+			else if (order % 4 == 1)     sum[order] -= term_i.imag();
+			else if (order % 4 == 2)     sum[order] -= term_i.real();
+			else /*if (order % 4 == 3)*/ sum[order] += term_i.imag();
 		}
 	} return sum;
 }

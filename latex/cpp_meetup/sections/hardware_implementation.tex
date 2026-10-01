@@ -14,7 +14,8 @@
 	\begin{itemize}
 		\item Connect all 4 analog microphone input wires to the same microphone condenser unit
 		\item Good way to confirm that all 4 analog audio channels are phase locked
-		\item This is not a "given" for many circuits. There are many places an audio board can introduce (non-deterministic) lag
+		\item This is not a "given" for many circuits. 
+		\item There are many places an audio board can introduce (non/deterministic ,  non/linear) lag for each channel
 	\end{itemize}
 \end{frame}
 
@@ -92,8 +93,8 @@
 			& & \multicolumn{4}{c}{\rule{0pt}{0.5em}} \\[-1em]
 			& & ch0 & ch1 & ch2 & \cellcolor{red!20}ch3 \\ \hline
 			& ch0 &       & 50.58  & 100.63 & \cellcolor{red!20}148.21 \\
-			\mathbf{A} & ch1 &       &        & 50.05  & \cellcolor{red!20}97.63  \\
-			& ch2 &       &        &         & \cellcolor{red!20}47.58
+			\mathbf{A} & ch1 &       &        & 50.05  & \cellcolor{red!20}\phantom{0}97.63  \\
+			& ch2 &       &        &         & \cellcolor{red!20}\phantom{0}47.58
 		\end{array}
 		\]
 		
@@ -101,7 +102,7 @@
 		
 		
 		
-		\caption{$\Delta t$ between channels A and B}
+		\caption{$\Delta d$ in mm between channels A and B}
 	\end{figure}
 	
 	\vspace{-0.5em}

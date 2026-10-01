@@ -46,8 +46,13 @@
 	
 	
 	
+	\renewcommand{\sectionsubtitle}{AKA: "How to convert between the time and frequency domains as fast as possible"}
 	\section{Solving for the Coarse Correlation Surface}
 	\input{sections/approach_coarse}
+	\renewcommand{\sectionsubtitle}{}
+	
+	
+	
 	\section{Refining the Coarse Solution}
 	\input{sections/approach_fine}
 	
@@ -64,6 +69,79 @@
 		\end{figure}
 	\end{frame}
 	
+	
+	\begin{frame}[fragile]{Signal Acquirer}
+		\begin{lstlisting}[basicstyle=\ttfamily\tiny, 
+			linebackgroundcolor={%
+				\ifnum\value{lstnumber}=1 \color{red!30}\fi
+				\ifnum\value{lstnumber}=2 \color{yellow!30}\fi
+				\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+			}]
+// PSEUDOCODE. code radically altered to fit on a slide
+size_t find_extremma(const CorrelationHelper& correlation_helper, const std::array<Complex, Ncoeffs> &B, TimeIndex tau_to_time_idx)
+{
+// define tau search bounds
+constexpr size_t idx_fh_start = Nsamples/2 + Nsamples/4; // most negative tau
+constexpr size_t idx_fh_stop = Nsamples;                 // least negative tau
+constexpr size_t idx_sh_start = 0;                       // least positive tau (and 0)
+constexpr size_t idx_sh_stop = Nsamples/4;               // most positive tau
+
+auto check_index = [&](size_t i, size_t tau_idx)
+{
+	auto f_d1 = correlation_helper.correlation_surfaces[1][i];
+	auto f_d1_sign = sign(f_d1);
+	
+	if (f_d1_sign != last_f_d1_sign)
+	{
+		auto f_d0 = correlation_helper.correlation_surfaces[0][i];
+		auto f_d0_abs = std::abs(static_cast<CorrPeakT>(f_d0));
+		record_extremma_in_min_heap(CandidateExtremma{.time_idx = tau_idx + tau_to_time_idx, .value = f_d0_abs});
+		last_f_d1_sign = f_d1_sign;
+	}
+};
+
+// search first half (fh). tau most negative to least negative
+for (size_t i = idx_fh_start; i < idx_fh_stop; ++i)
+	check_index(i, tau_idx); // tau from -N/4 to -1 (almost 0).
+
+// now second half (sh). tau from 0 to most positive
+for (size_t i = idx_sh_start; i < idx_sh_stop; ++i)
+	check_index(i, tau_idx); // tau from 0 to N/4
+		\end{lstlisting}
+	\end{frame}
+	
+	
+	\begin{frame}[fragile]{Signal Acquirer Continued} 
+		\begin{lstlisting}[basicstyle=\ttfamily\tiny, 
+			linebackgroundcolor={%
+				\ifnum\value{lstnumber}=1 \color{red!30}\fi
+				\ifnum\value{lstnumber}=2 \color{yellow!30}\fi
+				\ifnum\value{lstnumber}=6 \color{yellow!30}\fi
+			}]
+// PSEUDOCODE. code radically altered to fit on a slide
+	
+// refine the peaks that were found
+size_t n_extremma_added = 0;
+for (auto &[time_idx, time_idx_fraction, value] : extremma_)
+{
+	if (time_idx == 0) continue;
+	if (time_idx < time_idx_lower_bound) continue;
+	
+	// tau from -N/4 to +N/4
+	int tau_idx_signed = static_cast<size_t>(time_idx - tau_to_time_idx);
+	
+	Precision tau_index_signed_float = tau_idx_signed;
+	auto [optimal_tau_idx, optimal_f_d0] = utils::NewtonSolver<Precision>::solve(fd0_fd1_fd2, tau_index_signed_float);
+	time_idx_fraction = optimal_tau_idx - tau_index_signed_float; // overwrite
+	value = std::abs(optimal_f_d0);  // overwrite
+	++n_extremma_added;
+}
+
+return n_extremma_added;
+}
+		\end{lstlisting}
+	\end{frame}
+	
 	\begin{frame}{Clean Frequency Seperation}
 		\begin{figure}
 			\centering
@@ -75,11 +153,35 @@
 	\begin{frame}{Improvements}
 		\begin{itemize}
 			\item Investigate fitting a second order polynomial to the correlation surface and analytically finding its peak location
-			\item Investigate just after around chirp peak in recordings
-			\item 8-channel (multiple Teensy's?)
+			\item Investigate chirp shape in recordings (poor freq response? echo?)
+			\item Investigate different chirps ($sinc^2()$)
+			\item 8-channel audio? 16-channel audio? (multiple Teensy's?)
 			\item PDM microphones for higher quality inputs and phase correction
 			\end{itemize}
 	\end{frame}
+
+
+\begin{frame}{Audio Processing Sliding Window}
+	\[
+	\begin{array}{c|c|c}
+		{} & \text{Previous Block} & \text{Current Block} \\[2pt]
+		\hline
+		\text{Time step 1} &
+		[a_0,\ a_1,\ a_2,\ \ldots,\ a_{127}] &
+		[b_0,\ b_1,\ b_2,\ \ldots,\ b_{127}] \\[4pt]
+		
+		\text{Time step 2} &
+		[b_0,\ b_1,\ b_2,\ \ldots,\ b_{127}] &
+		[c_0,\ c_1,\ c_2,\ \ldots,\ c_{127}] \\[4pt]
+		
+		\text{Time step 3} &
+		[c_0,\ c_1,\ c_2,\ \ldots,\ dc_{127}] &
+		[d_0,\ d_1,\ d_2,\ \ldots,\ d_{127}]
+	\end{array}
+	\]
+\end{frame}
+
+
 
 	
 	
